@@ -13,6 +13,8 @@ assets = group.new_file('Assets.xcassets')
 app.resources_build_phase.add_file_reference(assets)
 privacy = group.new_file('PrivacyInfo.xcprivacy')
 app.resources_build_phase.add_file_reference(privacy)
+launch = group.new_file('LaunchScreen.storyboard')
+app.resources_build_phase.add_file_reference(launch)
 group.new_file('Info.plist')
 
 app.build_configurations.each do |config|

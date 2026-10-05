@@ -96,3 +96,17 @@ Checked October 5, 2026. This change applies to Expo; original SwiftUI applicati
 - Result bundles: ignored `build/Passport-UI-final.xcresult` and `build/Passport-Reload-Go.xcresult`. Reviewed screenshots are `docs/screenshots/iphone15-passport-*.png` and contain fictional specimen data only.
 
 Physical-device camera capture, permission denial / recovery, real-world lighting and document variations, iPad scanning, and a comprehensive accessibility review remain unverified. TD3 passports are supported; damaged, truncated or other document formats may require manual entry. The scanner cannot establish identity, DV eligibility, birthplace, required family members or portrait compliance. Physical-device installation requires Apple signing credentials, which were unavailable on this Mac.
+
+## DV Lottery Tracker branding
+
+Checked October 5, 2026:
+
+- Adopted the selected eagle / circular badge / flag design. The built-in image-generation edit produced the full-bleed master; the committed Swift exporter creates the opaque 1024px home-screen icon and rounded transparent in-app assets from that master. Expo and SwiftUI copies match byte-for-byte.
+- Updated all user-facing app names, header and About branding, welcome tour, opening state, native launch artwork and the SwiftUI privacy cover. Bundle IDs, Expo slug, storage keys and data schemas are unchanged.
+- TypeScript, all eleven existing domain tests, Expo dependency compatibility and the iOS Hermes export passed.
+- The SwiftUI simulator target (including its new launch storyboard) and the Expo iOS development build compiled successfully with Xcode 27. Installed the rebuilt Expo app on iPhone 15 and iPad Air simulators; the built Info.plist reports `DV Lottery Tracker`.
+- After clearing the stale Metro preview cache, the iPhone 15 welcome-tour check passed all four pages, Back / Next, every exit, replay and Get started. Reviewed the actual Home and first-page screenshots in `docs/screenshots/iphone15-branding-*.png` for icon rendering and readable full app name. Result: `build/Branding-Tour-Final.xcresult`.
+- The same tour interaction check passed on iPad Air 11-inch (M4) in the rebuilt Expo development app. Reviewed `docs/screenshots/ipad-branding-welcome.png`; the full name, icon and controls fit. Result: `build/Branding-iPad.xcresult`. Use `TEST_RUNNER_DV_UI_BUNDLE_ID=com.dvlottery.expo` with the existing tour test to target the development app instead of Expo Go.
+- The existing saved-draft test passed after installing the renamed iPhone development app: the fictional imported name, corrected birth date and passport number remained intact. Result: `build/Branding-Data-Retained.xcresult`.
+
+The home-screen name/icon and native splash require a rebuilt installed app; Expo Go retains its own home-screen icon. Final release-build splash timing and physical-device branding remain unverified. Expo documents the preview limitations at https://docs.expo.dev/versions/latest/sdk/splash-screen/.

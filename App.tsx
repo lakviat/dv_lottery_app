@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Image,
   Pressable,
   StyleSheet,
   Text,
@@ -13,6 +12,7 @@ import {
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
+import { APP_NAME, BrandMark } from "./expo-app/Brand";
 import { HomeScreen, GuideContent } from "./expo-app/HomeScreen";
 import { ApplyScreen } from "./expo-app/ApplyScreen";
 import { PhotosScreen, removePhotoFile } from "./expo-app/PhotosScreen";
@@ -179,6 +179,19 @@ function DVApp() {
         }}
       >
         <StatusBar style="dark" />
+        <View style={{ alignItems: "center", gap: 20 }}>
+          <BrandMark size={112} />
+          <Text
+            style={{
+              fontSize: 25,
+              fontWeight: "700",
+              color: C.navy,
+              textAlign: "center",
+            }}
+          >
+            {APP_NAME}
+          </Text>
+        </View>
         {loadError ? (
           <>
             <Title>Saved records need attention</Title>
@@ -188,9 +201,9 @@ function DVApp() {
           </>
         ) : (
           <>
-            <ActivityIndicator size="large" color={C.navy} />
+            <ActivityIndicator size="small" color={C.navy} />
             <Text style={[s.body, { textAlign: "center" }]}>
-              Opening your DV journey…
+              Opening your saved entries…
             </Text>
           </>
         )}
@@ -219,10 +232,7 @@ function DVApp() {
             gap: 11,
           }}
         >
-          <Image
-            source={require("./DVLottery/Assets.xcassets/AppIcon.appiconset/AppIcon.png")}
-            style={{ width: 43, height: 43, borderRadius: 12 }}
-          />
+          <BrandMark />
           <View style={{ flex: 1, gap: 3 }}>
             <Text
               style={{
@@ -232,7 +242,7 @@ function DVApp() {
                 letterSpacing: -0.5,
               }}
             >
-              DV Lottery
+              {APP_NAME}
             </Text>
             <Pressable
               accessibilityRole={saveFailed ? "button" : "text"}
@@ -368,7 +378,8 @@ function DVApp() {
           }}
         />
         <Card>
-          <Label>DV Lottery · Expo preview 0.1</Label>
+          <BrandMark size={58} />
+          <Label>{APP_NAME} · Expo preview 0.1</Label>
           <Title>Made for your next chapter.</Title>
           <Body>
             An independent iPhone and iPad companion for preparing DV entries,

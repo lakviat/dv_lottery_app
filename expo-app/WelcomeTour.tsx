@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
   AccessibilityInfo,
-  Image,
   Modal,
   Pressable,
   ScrollView,
@@ -13,10 +12,11 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { Button, C, Icon, IconName } from "./ui";
+import { APP_NAME, BrandMark } from "./Brand";
 
 const pages = [
   {
-    eyebrow: "WELCOME TO DV LOTTERY",
+    eyebrow: `WELCOME TO ${APP_NAME.toUpperCase()}`,
     title: "Your DV journey,\nsimplified.",
     body: "Prepare your entry and keep your history together. No sign-up, no password. Start whenever you’re ready.",
     note: "A quick look around. Go at your own pace, or skip straight to the app.",
@@ -82,7 +82,11 @@ function Illustration({ page, compact }: { page: number; compact: boolean }) {
         importantForAccessibility="no-hide-descendants"
         style={styles.compactArt}
       >
-        <Icon name={pages[page].icon} size={38} color={C.blue} />
+        {page === 0 ? (
+          <BrandMark size={44} />
+        ) : (
+          <Icon name={pages[page].icon} size={38} color={C.blue} />
+        )}
         <Text style={styles.compactText}>
           {
             [
@@ -104,11 +108,8 @@ function Illustration({ page, compact }: { page: number; compact: boolean }) {
       <View style={styles.orbit} />
       {page === 0 && (
         <LinearGradient colors={["#1C3E65", C.navy]} style={styles.welcomeArt}>
-          <Image
-            source={require("../DVLottery/Assets.xcassets/AppIcon.appiconset/AppIcon.png")}
-            style={styles.flag}
-          />
-          <Text style={styles.welcomeName}>DV Lottery</Text>
+          <BrandMark size={78} />
+          <Text style={styles.welcomeName}>{APP_NAME}</Text>
           <View style={styles.welcomePill}>
             <Icon name="checkmark-circle" size={17} color="#BFDCD6" />
             <Text style={styles.welcomePillText}>No sign-up required</Text>
@@ -359,15 +360,9 @@ const styles = StyleSheet.create({
     gap: 12,
     borderRadius: 25,
   },
-  flag: {
-    width: 78,
-    height: 78,
-    borderRadius: 21,
-    borderWidth: 1,
-    borderColor: "#547193",
-  },
   welcomeName: {
-    fontSize: 26,
+    fontSize: 24,
+    textAlign: "center",
     fontWeight: "700",
     letterSpacing: -0.5,
     color: C.white,

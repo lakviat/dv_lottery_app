@@ -1,8 +1,19 @@
-# DV Lottery — Expo + native iOS prototypes
+# DV Lottery Tracker — Expo + native iOS prototypes
 
-An iPhone and iPad companion for preparing a Diversity Visa entry, managing family photos, and keeping a history of submitted entries. The working name is **DV Lottery**.
+An iPhone and iPad companion for preparing a Diversity Visa entry, managing family photos, and keeping a history of submitted entries. The app is named **DV Lottery Tracker**.
 
 The **Expo / React Native preview** runs from the repository root in Expo Go. The original **SwiftUI app** remains in `DVLottery/` with its Xcode project. They are separate implementations with separate local storage; they do not synchronize records.
+
+## App branding
+
+**DV Lottery Tracker** uses the approved eagle, stars and stripes artwork on the home-screen icon, launch screen, opening state, app header, welcome tour and About screen. The original SwiftUI prototype shares the artwork and display name, including its privacy cover.
+
+- `assets/branding/icon-source.png`: production master adapted from the selected concept using built-in image generation; its exact edit prompt is in `assets/branding/generation-prompt.txt`.
+- `assets/branding/icon.png`: opaque 1024 × 1024 app icon. iOS applies the corner mask.
+- `assets/branding/mark.png`: transparent rounded mark used within the app and by `expo-splash-screen`.
+- Run `swift scripts/generate_icon.swift` from the repository root to export all Expo and SwiftUI asset copies from the master.
+
+Reload Expo Go to see the in-app branding. Installing a rebuilt iOS app is required to change the installed home-screen name/icon and native splash configuration. Expo Go retains its own home-screen icon. The Expo slug, iOS bundle identifiers and storage keys remain stable so existing drafts and saved records are retained when updating the same app. The native splash dismisses normally; no artificial loading delay has been added.
 
 ## Run in Expo Go
 
@@ -56,7 +67,7 @@ npm run ios:dev       # creates ios/, builds and opens the simulator app
 npm run start:dev     # subsequent sessions, without rebuilding native code
 ```
 
-For an iPhone / iPad, configure an Apple development team in Xcode and run `npm run ios:dev -- --device`. The committed `expo-build-properties` configuration enables scene support for Xcode 27 / iOS 27 on Expo SDK 57. The generated workspace is `ios/DVLottery.xcworkspace`; the repository-root Xcode project belongs to the separate SwiftUI prototype. Generated `ios/` files are ignored; the app configuration and local module are committed. Expo Go and the development app have separate storage, so the first development-build launch starts with its own draft.
+For an iPhone / iPad, configure an Apple development team in Xcode and run `npm run ios:dev -- --device`. The committed `expo-build-properties` configuration enables scene support for Xcode 27 / iOS 27 on Expo SDK 57. The generated workspace is `ios/DVLotteryTracker.xcworkspace`; the repository-root Xcode project belongs to the separate SwiftUI prototype. Generated `ios/` files are ignored; the app configuration and local module are committed. Expo Go and the development app have separate storage, so the first development-build launch starts with its own draft.
 
 Keep Node and npm on the same CPU architecture. On this Mac, `/opt/homebrew/bin/node` is arm64 while the nvm Node 24 installation is x64; mixing them causes esbuild errors. For native builds in an iCloud-synced Desktop directory, Xcode may also reject Finder metadata during framework signing. This session built outside that directory using `/tmp/dv-lottery-expo-native` and disabled signing in the local ExpoModulesJSI nested simulator build; that dependency edit is not an app-source change. For repeat builds, prefer a checkout outside iCloud-synced folders.
 

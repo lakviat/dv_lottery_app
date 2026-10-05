@@ -98,24 +98,16 @@ struct Note: View {
     }
 }
 
-struct FlagMark: View {
+enum Brand {
+    static let name = "DV Lottery Tracker"
+}
+
+struct BrandMark: View {
     var body: some View {
-        GeometryReader { geo in
-            let w = geo.size.width
-            let h = geo.size.height
-            ZStack(alignment: .topLeading) {
-                Palette.navy
-                ForEach(0..<4) { stripe in
-                    Path { p in
-                        let y = h * (0.40 + Double(stripe) * 0.17)
-                        p.move(to: CGPoint(x: -w * 0.08, y: y))
-                        p.addCurve(to: CGPoint(x: w * 1.1, y: y - h * 0.23), control1: CGPoint(x: w * 0.4, y: y + h * 0.2), control2: CGPoint(x: w * 0.58, y: y - h * 0.28))
-                    }.stroke(stripe % 2 == 0 ? Palette.red : Color.white.opacity(0.93), style: StrokeStyle(lineWidth: h * 0.085, lineCap: .round))
-                }
-                Image(systemName: "star.fill").font(.system(size: w * 0.25)).foregroundStyle(.white).offset(x: w * 0.16, y: h * 0.12)
-                Image(systemName: "star.fill").font(.system(size: w * 0.095)).foregroundStyle(.white.opacity(0.6)).offset(x: w * 0.52, y: h * 0.14)
-            }.clipShape(RoundedRectangle(cornerRadius: w * 0.24))
-        }.aspectRatio(1, contentMode: .fit).accessibilityHidden(true)
+        Image("BrandIcon")
+            .resizable()
+            .scaledToFit()
+            .accessibilityHidden(true)
     }
 }
 

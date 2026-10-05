@@ -1,6 +1,6 @@
-# DV Lottery — product requirements and first build
+# DV Lottery Tracker — product requirements and first build
 
-Research date: **October 5, 2026, America/New_York**. Working name: **DV Lottery**. Platforms: iPhone and iPad only. This repository contains a functioning native prototype, not a production filing service.
+Research date: **October 5, 2026, America/New_York**. App name: **DV Lottery Tracker**. Platforms: iPhone and iPad only. This repository contains a functioning native prototype, not a production filing service.
 
 ## Product purpose
 
@@ -58,7 +58,7 @@ Drafts are not attached to a confirmed program year until an authoritative year/
 
 ## Visual direction
 
-Native SwiftUI; dark navy headings, a muted blue secondary color, restrained red, warm date notice, white cards on a cool background. The original icon uses a star and flowing flag stripes; it does not reproduce a competitor icon, federal seal, or agency branding. Home uses an original passport illustration built in SwiftUI. On iPad the dashboard uses two columns while forms retain a readable width. All primary actions have text labels, and status is communicated through text as well as color.
+Native SwiftUI; dark navy headings, a muted blue secondary color, restrained red, warm date notice, white cards on a cool background. The approved icon uses a simplified white eagle in a circular navy badge, with white stars and red/white stripes. The same artwork appears in the app, welcome tour, and launch screen. Home uses an original passport illustration built in SwiftUI. On iPad the dashboard uses two columns while forms retain a readable width. All primary actions have text labels, and status is communicated through text as well as color.
 
 ## Privacy and integration architecture
 

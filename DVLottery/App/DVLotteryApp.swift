@@ -19,7 +19,7 @@ struct DVLotteryApp: App {
                     if phase != .active {
                         ZStack {
                             Palette.background.ignoresSafeArea()
-                            VStack(spacing: 16) { FlagMark().frame(width: 68, height: 68); Text("DV Lottery").font(.title2.bold()).foregroundStyle(Palette.navy) }
+                            VStack(spacing: 16) { BrandMark().frame(width: 68, height: 68); Text(Brand.name).font(.title2.bold()).foregroundStyle(Palette.navy) }
                         }.accessibilityLabel("App content hidden")
                     }
                 }

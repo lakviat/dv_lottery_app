@@ -12,6 +12,7 @@
 		116D37AA4DE8A1877E408F0F /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 537294C922E5DEBC26A8A504 /* Models.swift */; };
 		313D6C8E347EDD17B87790D6 /* PhotosView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3805D4A36340CE4B74E58036 /* PhotosView.swift */; };
 		439554F8525D1163BC617121 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 52D476104CA807EE35972246 /* Foundation.framework */; };
+		43C60FCD44512190DA5FE6DF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = A3C24A9047698A18178E7E8D /* LaunchScreen.storyboard */; };
 		47121082815D7E4FFD7504A9 /* ApplyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22AAF505F62C13EFA0E978D1 /* ApplyView.swift */; };
 		53FF5919746E3A3EDC4A4A6A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 3A5273285031DBE4E4580102 /* Assets.xcassets */; };
 		5514D9D80A229A021A3114FF /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 52D476104CA807EE35972246 /* Foundation.framework */; };
@@ -61,6 +62,7 @@
 		6125ED72CF9C7BC532906B5E /* DVLottery.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DVLottery.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		644D5812C96B0F8EAA2C0756 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		9DAAF8C0171860B33A4F2227 /* GuideView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = GuideView.swift; path = Views/GuideView.swift; sourceTree = "<group>"; };
+		A3C24A9047698A18178E7E8D /* LaunchScreen.storyboard */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
 		C20D28074A85D6D0E3480F7D /* HomeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeView.swift; path = Views/HomeView.swift; sourceTree = "<group>"; };
 		C302D69B63F55FC8B088C08F /* DVLotteryApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DVLotteryApp.swift; path = App/DVLotteryApp.swift; sourceTree = "<group>"; };
 		CD790183393B1D6DB4931665 /* AppStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AppStore.swift; path = Services/AppStore.swift; sourceTree = "<group>"; };
@@ -157,6 +159,7 @@
 				3A5273285031DBE4E4580102 /* Assets.xcassets */,
 				466312B80D1A055DC8F624FA /* PrivacyInfo.xcprivacy */,
 				644D5812C96B0F8EAA2C0756 /* Info.plist */,
+				A3C24A9047698A18178E7E8D /* LaunchScreen.storyboard */,
 			);
 			name = DVLottery;
 			path = DVLottery;
@@ -266,6 +269,7 @@
 			files = (
 				53FF5919746E3A3EDC4A4A6A /* Assets.xcassets in Resources */,
 				BC16C09F1FED708AED7BC06A /* PrivacyInfo.xcprivacy in Resources */,
+				43C60FCD44512190DA5FE6DF /* LaunchScreen.storyboard in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

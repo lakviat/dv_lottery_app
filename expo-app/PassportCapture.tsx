@@ -58,7 +58,7 @@ export function PassportCapture({
     if (!PassportReader) {
       Alert.alert(
         "Passport scanning needs the iOS development build",
-        "Expo Go can run the form but does not include the on-device passport scanner. Open the DV Lottery development app to scan, or enter your details manually here.",
+        "Expo Go can run the form but does not include the on-device passport scanner. Open the DV Lottery Tracker development app to scan, or enter your details manually here.",
       );
       return;
     }
@@ -178,7 +178,7 @@ export function PassportCapture({
         </Text>
         {!PassportReader && (
           <Text style={s.small}>
-            Scanner available in the DV Lottery iOS development build. Manual
+            Scanner available in the DV Lottery Tracker iOS development build. Manual
             entry works in Expo Go.
           </Text>
         )}

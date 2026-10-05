@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "DV Lottery",
+    "name": "DV Lottery Tracker",
     "slug": "dv-lottery-app",
     "version": "0.1.0",
     "platforms": [
@@ -8,7 +8,7 @@
     ],
     "orientation": "default",
     "userInterfaceStyle": "light",
-    "icon": "./DVLottery/Assets.xcassets/AppIcon.appiconset/AppIcon.png",
+    "icon": "./assets/branding/icon.png",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.dvlottery.expo",
@@ -35,6 +35,15 @@
           "ios": {
             "enableSceneSupport": true
           }
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#F4F6FA",
+          "image": "./assets/branding/mark.png",
+          "imageWidth": 112,
+          "resizeMode": "contain"
         }
       ]
     ]

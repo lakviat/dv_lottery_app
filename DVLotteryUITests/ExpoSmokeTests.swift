@@ -7,6 +7,7 @@ final class ExpoSmokeTests: XCTestCase {
         continueAfterFailure = false
         try XCTSkipUnless(ProcessInfo.processInfo.environment["DV_PASSPORT_RELOAD_TEST"] == "1", "Requires the fictional imported draft and a complete reload.")
         let app = XCUIApplication(bundleIdentifier: "com.dvlottery.expo")
+        acceptOpenAppPrompt()
         app.activate()
         dismissDevelopmentMenu(app)
         let apply = app.descendants(matching: .any).matching(identifier: "tab-apply").firstMatch
@@ -160,7 +161,9 @@ final class ExpoSmokeTests: XCTestCase {
     @MainActor func testWelcomeTourNavigationAndEveryExit() throws {
         continueAfterFailure = false
         try XCTSkipUnless(ProcessInfo.processInfo.environment["DV_EXPO_UI_TESTS"] == "1", "Requires the Expo preview.")
-        let app = XCUIApplication(bundleIdentifier: "host.exp.Exponent")
+        let bundle = ProcessInfo.processInfo.environment["DV_UI_BUNDLE_ID"] ?? "host.exp.Exponent"
+        let app = XCUIApplication(bundleIdentifier: bundle)
+        acceptOpenAppPrompt()
         app.activate()
         dismissDevelopmentMenu(app)
 
@@ -206,6 +209,13 @@ final class ExpoSmokeTests: XCTestCase {
         XCTAssertTrue(app.buttons["Open settings"].waitForExistence(timeout: 15))
         XCTAssertFalse(app.buttons["tour-skip"].exists)
         XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "tab-home").firstMatch.isHittable)
+    }
+
+    @MainActor private func acceptOpenAppPrompt() {
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        if springboard.buttons["Open"].waitForExistence(timeout: 2) {
+            springboard.buttons["Open"].tap()
+        }
     }
 
     @MainActor private func replayWelcome(_ app: XCUIApplication) {

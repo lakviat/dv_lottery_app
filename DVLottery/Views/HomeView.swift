@@ -37,9 +37,9 @@ struct HomeView: View {
 
     private var header: some View {
         HStack(spacing: 11) {
-            FlagMark().frame(width: 39, height: 39)
+            BrandMark().frame(width: 39, height: 39)
             VStack(alignment: .leading, spacing: 3) {
-                Text("DV Lottery").font(.system(size: 21, weight: .bold, design: .rounded)).foregroundStyle(Palette.navy)
+                Text(Brand.name).font(.system(size: 20, weight: .bold, design: .rounded)).foregroundStyle(Palette.navy).fixedSize(horizontal: false, vertical: true)
                 Text("YOUR JOURNEY, ORGANIZED").font(.system(size: 8, weight: .semibold)).tracking(1.5).foregroundStyle(Palette.muted)
             }
             Spacer()

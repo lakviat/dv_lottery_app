@@ -51,7 +51,7 @@ struct SettingsView: View {
         NavigationStack {
             List {
                 Section {
-                    HStack(spacing: 15) { FlagMark().frame(width: 58, height: 58); VStack(alignment: .leading, spacing: 6) { Text("DV Lottery").font(.title3.bold()); Text("Your journey, organized.").font(.subheadline).foregroundStyle(.secondary) } }.padding(.vertical, 9)
+                    HStack(spacing: 15) { BrandMark().frame(width: 58, height: 58); VStack(alignment: .leading, spacing: 6) { Text(Brand.name).font(.title3.bold()); Text("Your journey, organized.").font(.subheadline).foregroundStyle(.secondary) } }.padding(.vertical, 9)
                 }
                 Section("Your data") {
                     Label("Stored on this device", systemImage: "iphone")
