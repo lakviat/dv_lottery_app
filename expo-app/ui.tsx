@@ -145,8 +145,9 @@ export function Button({
 export function Field({
   label,
   help,
+  error,
   ...props
-}: TextInputProps & { label: string; help?: string }) {
+}: TextInputProps & { label: string; help?: string; error?: string }) {
   return (
     <View style={{ gap: 7 }}>
       <Text style={s.fieldLabel}>{label}</Text>
@@ -155,12 +156,18 @@ export function Field({
         placeholderTextColor="#8793A4"
         style={[
           s.input,
+          error ? { borderColor: C.red } : undefined,
           props.multiline && { minHeight: 92, textAlignVertical: "top" },
         ]}
         autoCorrect={false}
         {...props}
       />
       {help && <Text style={s.small}>{help}</Text>}
+      {!!error && (
+        <Text accessibilityRole="alert" style={[s.small, { color: C.red }]}>
+          {error}
+        </Text>
+      )}
     </View>
   );
 }
@@ -196,12 +203,14 @@ export function Select({
   options,
   onChange,
   searchable = false,
+  error,
 }: {
   label: string;
   value: string;
   options: string[];
   onChange: (value: string) => void;
   searchable?: boolean;
+  error?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -216,7 +225,7 @@ export function Select({
             setQuery("");
             setOpen(true);
           }}
-          style={[s.input, s.row]}
+          style={[s.input, s.row, error ? { borderColor: C.red } : undefined]}
         >
           <Text
             style={{ flex: 1, fontSize: 16, color: value ? C.navy : C.muted }}
@@ -225,6 +234,11 @@ export function Select({
           </Text>
           <Icon name="chevron-down" size={18} />
         </Pressable>
+        {!!error && (
+          <Text accessibilityRole="alert" style={[s.small, { color: C.red }]}>
+            {error}
+          </Text>
+        )}
       </View>
       <Sheet visible={open} title={label} onClose={() => setOpen(false)}>
         {searchable && (
@@ -301,14 +315,20 @@ export function Empty({
 export function Screen({
   children,
   wide = false,
-}: PropsWithChildren<{ wide?: boolean }>) {
+  scrollRef,
+}: PropsWithChildren<{
+  wide?: boolean;
+  scrollRef?: React.RefObject<ScrollView | null>;
+}>) {
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <ScrollView
+        ref={scrollRef}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
         contentContainerStyle={{
           padding: 20,
           paddingBottom: 32,

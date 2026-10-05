@@ -194,7 +194,9 @@ export function HomeScreen({
           <Card style={{ height: "100%" }}>
             <Row>
               <Title>Your preparation</Title>
-              <Badge>{completed} / 6</Badge>
+              <Badge>
+                {completed} / {steps.length}
+              </Badge>
             </Row>
             <View
               style={{
@@ -207,7 +209,7 @@ export function HomeScreen({
               <View
                 style={{
                   height: 7,
-                  width: `${(completed / 6) * 100}%`,
+                  width: `${(completed / steps.length) * 100}%`,
                   backgroundColor: C.blue,
                   borderRadius: 4,
                 }}
@@ -216,7 +218,7 @@ export function HomeScreen({
             <Body muted>
               {records.draft.started
                 ? `Pick up at ${steps[records.draft.step].toLowerCase()}. Your progress saves as you go.`
-                : "From eligibility to the final review, we’ll help you organize what you need."}
+                : "Start with a passport scan or type your details, then prepare photos and review."}
             </Body>
             <Button
               secondary
@@ -367,8 +369,9 @@ export function GuideContent() {
         <Body>
           The March 2026 rule requires passport information and specified page
           scans, with limited exemptions. Review current instructions before
-          entry. This app tracks readiness but does not store passport numbers
-          or scans.
+          entry. You can scan your passport to prepare personal details on this
+          device. The temporary scan is removed after reading; confirmed
+          passport details stay in your local draft.
         </Body>
         <LinkRow title="Read the passport rule" url={official.passport} />
       </Card>

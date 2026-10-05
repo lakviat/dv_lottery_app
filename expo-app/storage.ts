@@ -1,6 +1,7 @@
 import * as SecureStore from "expo-secure-store";
 import * as Crypto from "expo-crypto";
 import { makeRecords, Records } from "./models";
+import { migrateRecords } from "./migrations";
 
 const prefix = "dv-lottery-expo-v1";
 const options: SecureStore.SecureStoreOptions = {
@@ -33,20 +34,7 @@ export async function loadRecords(): Promise<Records> {
     throw new Error(
       "Part of your saved records could not be loaded. Existing data has not been overwritten.",
     );
-  const data = JSON.parse(chunks.join("")) as Records;
-  if (
-    data.version !== 1 ||
-    !data.draft ||
-    !Array.isArray(data.draft.people) ||
-    !data.draft.people.length ||
-    !Array.isArray(data.entries) ||
-    !Array.isArray(data.photos) ||
-    !Number.isInteger(data.draft.step) ||
-    data.draft.step < 0 ||
-    data.draft.step > 5
-  )
-    throw new Error("Saved data has an unsupported format.");
-  return data;
+  return migrateRecords(JSON.parse(chunks.join("")));
 }
 
 // ASCII chunks stay below Keychain's size limits, including for non-Latin names.

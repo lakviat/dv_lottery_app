@@ -18,6 +18,7 @@ import { ApplyScreen } from "./expo-app/ApplyScreen";
 import { PhotosScreen, removePhotoFile } from "./expo-app/PhotosScreen";
 import { EntriesScreen } from "./expo-app/EntriesScreen";
 import { WelcomeTour } from "./expo-app/WelcomeTour";
+import { clearPassportCache } from "./expo-app/PassportCapture";
 import {
   dismissWelcome,
   shouldShowWelcome,
@@ -78,6 +79,9 @@ function DVApp() {
       .catch((e) => setLoadError(e.message || "Saved data could not be read."));
   };
   useEffect(load, []);
+  useEffect(() => {
+    void clearPassportCache().catch(() => {});
+  }, []);
   const closeWelcome = () => {
     setWelcome(false);
     void dismissWelcome();

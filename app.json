@@ -3,7 +3,9 @@
     "name": "DV Lottery",
     "slug": "dv-lottery-app",
     "version": "0.1.0",
-    "platforms": ["ios"],
+    "platforms": [
+      "ios"
+    ],
     "orientation": "default",
     "userInterfaceStyle": "light",
     "icon": "./DVLottery/Assets.xcassets/AppIcon.appiconset/AppIcon.png",
@@ -26,7 +28,15 @@
       "expo-secure-store",
       "expo-web-browser",
       "expo-sharing",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "enableSceneSupport": true
+          }
+        }
+      ]
     ]
   }
 }

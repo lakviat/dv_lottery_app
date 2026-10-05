@@ -80,3 +80,19 @@ Checked October 5, 2026 for the Expo implementation:
 - Result bundles: ignored `build/WelcomeTour-final.xcresult` and `build/WelcomeTour-reload.xcresult`. The simulator test hides Expo Go's floating development-tools button so it cannot intercept the app's Settings control.
 
 The tour changes do not modify the original SwiftUI app. Physical-device, iPad, landscape, larger-text and comprehensive VoiceOver tour testing remain outstanding. To repeat the reload check, first dismiss the tour, reload Metro, then run only `ExpoSmokeTests/testWelcomeRemainsDismissedAfterReload` with `TEST_RUNNER_DV_EXPO_RELOAD_TEST=1`.
+
+## Passport capture and Apply correction
+
+Checked October 5, 2026. This change applies to Expo; original SwiftUI application code is unchanged.
+
+- Reproduced the date-format mismatch in the previous validator: a valid `02/04/1987` input failed its ISO-only check. Birth-date input now explicitly displays MM/DD/YYYY, accepts ISO as well, and produces field-specific messages for invalid dates, missing names, sex or birthplace.
+- Eleven domain tests passed, including impossible / future dates, all six legacy-step migrations, preservation of existing records, ICAO specimen extraction, check-digit failures, OCR character confusion, conflicting scan results, and preserving birthplace / eligibility / family when importing passport fields.
+- TypeScript strict checking and the iOS Hermes export passed. Expo dependency compatibility check passed.
+- The actual Apple Vision recognizer and JavaScript parser together recovered every expected field from a generated, clearly marked fictional ICAO specimen image. No real passport was used. Reproduction commands are in README.
+- The iOS development build compiled with Xcode 27. `expo-build-properties` scene support was needed for its iOS 27 launch. Simulator ad-hoc signing was required for SecureStore Keychain access; an unsigned simulator app correctly failed to load instead of overwriting records.
+- Temporary scanner workspace contained zero files after processing. Passport images and raw OCR text are not saved into records; confirmed passport fields use the existing Keychain store.
+- iPhone 15 simulator end-to-end test passed: cancel the photo picker, import the fictional image, review extracted names, confirm autofill, enter `02/04/1987`, complete birthplace / education, and Continue to Contact without validation errors. The test uses the actual native scanner, not an OCR mock.
+- Separate UI tests passed after a Metro reload: the imported name, corrected birth date and passport number remained saved; Expo Go displayed its scanner-unavailable message and kept the form accessible.
+- Result bundles: ignored `build/Passport-UI-final.xcresult` and `build/Passport-Reload-Go.xcresult`. Reviewed screenshots are `docs/screenshots/iphone15-passport-*.png` and contain fictional specimen data only.
+
+Physical-device camera capture, permission denial / recovery, real-world lighting and document variations, iPad scanning, and a comprehensive accessibility review remain unverified. TD3 passports are supported; damaged, truncated or other document formats may require manual entry. The scanner cannot establish identity, DV eligibility, birthplace, required family members or portrait compliance. Physical-device installation requires Apple signing credentials, which were unavailable on this Mac.

@@ -8,6 +8,8 @@ node_modules/
 .expo/
 dist/
 expo-env.d.ts
+# Generated Expo native project; local modules and app config are the source of truth.
+/ios/
 *.log
 .env
 .env.*

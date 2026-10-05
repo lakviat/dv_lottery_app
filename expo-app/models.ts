@@ -15,6 +15,13 @@ export type Person = {
 export type Draft = {
   started: boolean;
   step: number;
+  detailsSection: "personal" | "contact" | "family";
+  passport: {
+    number: string;
+    issuer: string;
+    nationality: string;
+    expires: string;
+  };
   people: Person[];
   eligibilityCountry: string;
   eligibilityBasis: string;
@@ -70,19 +77,12 @@ export type Entry = {
   events: { id: string; status: EntryStatus; date: string; note: string }[];
 };
 export type Records = {
-  version: 1;
+  version: 2;
   draft: Draft;
   photos: Photo[];
   entries: Entry[];
 };
-export const steps = [
-  "Eligibility",
-  "Personal",
-  "Contact",
-  "Family",
-  "Photos",
-  "Review",
-];
+export const steps = ["Your details", "Photos", "Review"];
 export const id = () =>
   `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
 export const today = () => dateString(new Date());
@@ -106,6 +106,8 @@ export const makePerson = (
 export const makeDraft = (): Draft => ({
   started: false,
   step: 0,
+  detailsSection: "personal",
+  passport: { number: "", issuer: "", nationality: "", expires: "" },
   people: [makePerson()],
   eligibilityCountry: "",
   eligibilityBasis: "Country of birth",
@@ -130,7 +132,7 @@ export const makeDraft = (): Draft => ({
   reviewed: false,
 });
 export const makeRecords = (): Records => ({
-  version: 1,
+  version: 2,
   draft: makeDraft(),
   photos: [],
   entries: [],
@@ -157,6 +159,19 @@ export function validPastDate(value: string, now = new Date()) {
   const date = parseDate(value);
   return !!date && date.getFullYear() >= 1900 && date <= now;
 }
+// Birth-date input is explicitly month/day/year. Keep canonical stored dates ISO.
+// ISO is also accepted for pasted dates and records from earlier app versions.
+export function normalizeBirthDate(value: string): string {
+  const s = value.trim();
+  const match = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(s);
+  return match
+    ? `${match[3]}-${match[1].padStart(2, "0")}-${match[2].padStart(2, "0")}`
+    : s;
+}
+export function displayBirthDate(value: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  return match ? `${match[2]}/${match[3]}/${match[1]}` : value;
+}
 export function photoRecent(photo: Photo, now = new Date()) {
   const taken = parseDate(photo.takenOn);
   const cutoff = new Date(now.getFullYear(), now.getMonth() - 6, 1);
@@ -170,40 +185,37 @@ export function photoRecent(photo: Photo, now = new Date()) {
 }
 export const photoReviewed = (photo: Photo, now = new Date()) =>
   photo.composition && photo.notReused && photoRecent(photo, now);
-export function personComplete(p: Person) {
-  return (
-    (!!p.first.trim() || p.noFirst) &&
-    (!!p.last.trim() || p.noLast) &&
-    !(p.noFirst && p.noLast) &&
-    validPastDate(p.dob) &&
-    !!p.sex &&
-    !!p.city.trim() &&
-    !!p.country
-  );
+export function personErrors(p: Person): Partial<Record<keyof Person, string>> {
+  const errors: Partial<Record<keyof Person, string>> = {};
+  if (!p.first.trim() && !p.noFirst)
+    errors.first = "Enter your first / given name or choose no given name.";
+  if (!p.last.trim() && !p.noLast)
+    errors.last = "Enter your last / family name or choose no family name.";
+  if (p.noFirst && p.noLast) errors.first = "At least one name is required.";
+  if (!validPastDate(normalizeBirthDate(p.dob)))
+    errors.dob =
+      "Enter a real birth date in MM/DD/YYYY format, not in the future.";
+  if (!["Male", "Female"].includes(p.sex))
+    errors.sex = "Choose sex as required by the official form.";
+  if (!p.city.trim()) errors.city = "Enter your city of birth.";
+  if (!p.country) errors.country = "Choose your country of birth.";
+  return errors;
 }
+export const personComplete = (p: Person) =>
+  Object.keys(personErrors(p)).length === 0;
 export const needsSpouse = (draft: Draft) =>
   draft.marital === "Married — spouse is not a U.S. citizen / LPR";
-export function draftIssues(d: Draft, photos: Photo[], step: number): string[] {
+export function detailsIssues(
+  d: Draft,
+  section: Draft["detailsSection"],
+): string[] {
   const errors: string[] = [];
-  switch (step) {
-    case 0:
-      if (!d.eligibilityCountry)
-        errors.push("Choose your country of eligibility.");
-      if (!d.qualification)
-        errors.push("Choose an education or work experience basis.");
-      if (!d.eligibilityReviewed)
-        errors.push("Review the official eligibility instructions.");
-      break;
-    case 1:
-      if (!personComplete(d.people[0]))
-        errors.push(
-          "Complete your name, valid birth date, sex, and birthplace.",
-        );
+  switch (section) {
+    case "personal":
+      errors.push(...Object.values(personErrors(d.people[0])));
       if (!d.education) errors.push("Choose your highest level of education.");
-      if (!d.passportPlan || !d.passportReviewed)
-        errors.push("Review passport and page-scan requirements.");
       break;
-    case 2:
+    case "contact":
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.email.trim()))
         errors.push("Enter a valid email address.");
       if (
@@ -215,7 +227,7 @@ export function draftIssues(d: Draft, photos: Photo[], step: number): string[] {
       if (!d.postal.trim() && !d.noPostal)
         errors.push("Enter your postal code or select no postal code.");
       break;
-    case 3: {
+    case "family": {
       if (!d.marital) errors.push("Choose your marital status.");
       const spouses = d.people.filter((p) => p.relationship === "Spouse");
       if (needsSpouse(d) && spouses.length !== 1)
@@ -228,7 +240,17 @@ export function draftIssues(d: Draft, photos: Photo[], step: number): string[] {
         errors.push("Confirm you reviewed who must be included.");
       break;
     }
-    case 4:
+  }
+  return errors;
+}
+export function draftIssues(d: Draft, photos: Photo[], step: number): string[] {
+  const errors: string[] = [];
+  switch (step) {
+    case 0:
+      return (["personal", "contact", "family"] as const).flatMap((section) =>
+        detailsIssues(d, section),
+      );
+    case 1:
       d.people.forEach((p) => {
         if (
           !photos.some(
@@ -238,7 +260,18 @@ export function draftIssues(d: Draft, photos: Photo[], step: number): string[] {
           errors.push(`Add and review a recent photo for ${personName(p)}.`);
       });
       break;
-    case 5:
+    case 2:
+      if (!d.eligibilityCountry)
+        errors.push("Choose your country of eligibility.");
+      if (
+        !d.qualification ||
+        d.qualification === "I need to review the requirements"
+      )
+        errors.push("Review your education or work experience basis.");
+      if (!d.eligibilityReviewed)
+        errors.push("Review the official eligibility instructions.");
+      if (!d.passportPlan || !d.passportReviewed)
+        errors.push("Review passport and required page-scan instructions.");
       if (!d.reviewed)
         errors.push("Confirm you reviewed your preparation details.");
   }

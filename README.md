@@ -20,7 +20,7 @@ npm start
 
 If a network blocks device-to-Mac traffic, use `npx expo start --go --tunnel` and follow Expo’s prompt to install its tunnel helper. A tunnel is optional; it is not needed for the normal LAN workflow. If Metro is already running, reuse its displayed URL rather than starting a second instance.
 
-The Expo preview includes all four tabs, the six-step draft, camera / system photo-picker preparation, square JPEG export, per-person photo review, saved confirmations, manual status timelines, searchable country pickers, official in-app browser links, and an adaptive iPad layout. Camera capture needs a physical device.
+The Expo preview includes all four tabs, the three-stage draft (Your details, Photos, Review), camera / system photo-picker preparation, square JPEG export, per-person photo review, saved confirmations, manual status timelines, searchable country pickers, official in-app browser links, and an adaptive iPad layout. Camera capture needs a physical device.
 
 Draft and entry JSON are stored in versioned chunks using Expo SecureStore (iOS Keychain); photo files stay in Expo’s local document directory. Expo Go manages the containing app’s permissions and storage. Use fictional information while testing. The SwiftUI file-protection and backup-exclusion implementation below does not apply to Expo photo files. There is no cloud sync or automatic government status feed.
 
@@ -38,6 +38,35 @@ npm test
 npx expo install --check
 npx expo-doctor
 npx expo export --platform ios --output-dir build/expo-export
+```
+
+## Passport capture and the iOS development build
+
+Apply now begins with **Take passport photo** / **Choose passport photo**, followed by editable personal, contact and family sections on one details page. The separate eligibility stage is folded into final Review. Birth dates show **MM/DD/YYYY** and accept that format or pasted ISO dates; errors identify individual fields. Existing six-step drafts migrate to the new flow without resetting entries or photos.
+
+The local `modules/passport-reader` module uses [Apple Vision text recognition](https://developer.apple.com/documentation/vision/recognizing-text-in-images). It reads the two passport lines described in [ICAO Doc 9303 Part 4](https://www.icao.int/sites/default/files/publications/DocSeries/9303_p4_cons_en.pdf), validates check digits, and opens an editable review. Only **Use these details** changes the draft. No image or passport data is sent to an OCR provider. The confirmed details are saved with the rest of the draft in the iOS Keychain.
+
+Names, birth date, sex, passport number, issuing authority / nationality codes and expiry are supported for TD3 passports. Users confirm the name split and full birth year because the machine-readable zone does not distinguish first vs. middle names and uses two-digit years. Birthplace, eligibility country, education, contact details, family and a separate DV portrait still need the user's input. Unreadable, damaged or unsupported documents fall back to manual entry; this is not document authentication.
+
+**Expo Go cannot load custom native modules.** The form works there, but scanning requires an [Expo development build](https://docs.expo.dev/develop/development-builds/introduction/):
+
+```sh
+npm ci
+npm run ios:dev       # creates ios/, builds and opens the simulator app
+npm run start:dev     # subsequent sessions, without rebuilding native code
+```
+
+For an iPhone / iPad, configure an Apple development team in Xcode and run `npm run ios:dev -- --device`. The committed `expo-build-properties` configuration enables scene support for Xcode 27 / iOS 27 on Expo SDK 57. The generated workspace is `ios/DVLottery.xcworkspace`; the repository-root Xcode project belongs to the separate SwiftUI prototype. Generated `ios/` files are ignored; the app configuration and local module are committed. Expo Go and the development app have separate storage, so the first development-build launch starts with its own draft.
+
+Keep Node and npm on the same CPU architecture. On this Mac, `/opt/homebrew/bin/node` is arm64 while the nvm Node 24 installation is x64; mixing them causes esbuild errors. For native builds in an iCloud-synced Desktop directory, Xcode may also reject Finder metadata during framework signing. This session built outside that directory using `/tmp/dv-lottery-expo-native` and disabled signing in the local ExpoModulesJSI nested simulator build; that dependency edit is not an app-source change. For repeat builds, prefer a checkout outside iCloud-synced folders.
+
+To exercise the real OCR engine with fictional data on a Mac:
+
+```sh
+mkdir -p build
+xcrun swiftc modules/passport-reader/ios/PassportTextRecognizer.swift scripts/test_passport_ocr.swift -o /tmp/dv-passport-ocr-test
+/tmp/dv-passport-ocr-test build/fictional-passport.png > build/passport-ocr-lines.json
+npx tsx scripts/assert_passport_ocr.ts build/passport-ocr-lines.json
 ```
 
 ## Run the original SwiftUI app
@@ -65,7 +94,7 @@ The checked-in project is ready to open. The optional `scripts/generate_project.
 
 This app **does not submit entries, transfer draft fields to the official form, collect payments, retrieve government status automatically, or certify eligibility/photos**. Users complete official entry and verification steps in the government website opened by the app, then record their confirmation/results. The portal could not be fetched by the research tool; its end-to-end mobile submission flow must be tested when available. No integration agreement or supported government API was established.
 
-Passport readiness is tracked; passport numbers and scans are entered/uploaded directly on the official site. The app does not store passport scans. The photo date and visual review are user assertions, not automated verification.
+The Expo development build can read a passport photo on-device and save confirmed passport details in the local draft. Temporary passport images are deleted after recognition; raw OCR text is not persisted. A fresh app launch clears leftover scan-workspace files. Original images in the user’s Photos library remain theirs to manage. Users still enter passport information and upload required scans on the official site. The original SwiftUI app only tracks passport readiness. The photo date and visual review are user assertions, not automated verification.
 
 The next registration date is unconfirmed. The interface deliberately has no October 7 countdown and does not equate calendar year with DV program year. Source facts are a dated snapshot, not a live feed. The country picker is not an eligibility list.
 
