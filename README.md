@@ -24,6 +24,12 @@ The Expo preview includes all four tabs, the six-step draft, camera / system pho
 
 Draft and entry JSON are stored in versioned chunks using Expo SecureStore (iOS Keychain); photo files stay in Expo’s local document directory. Expo Go manages the containing app’s permissions and storage. Use fictional information while testing. The SwiftUI file-protection and backup-exclusion implementation below does not apply to Expo photo files. There is no cloud sync or automatic government status feed.
 
+### Welcome tour
+
+The Expo app opens with a short, four-page welcome tour: getting started without an account, preparing details and photos, saving confirmations after official submission, and privacy / sharing. A visible **Skip tour / End tour** control is available on every page; the final page also has **Get started**. Nothing advances automatically, and no permissions or signup are requested.
+
+Skipping or finishing stores a separate on-device preference, without changing a draft, photos, entries, or the selected tab. To replay from the beginning, open **Settings → How it works**. Guidance can scroll on small screens or with larger text while the exit and navigation controls remain available. The original SwiftUI implementation is unchanged by this Expo tour update.
+
 ### Expo checks
 
 ```sh

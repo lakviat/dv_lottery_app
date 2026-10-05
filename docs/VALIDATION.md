@@ -68,3 +68,15 @@ TEST_RUNNER_DV_EXPO_UI_TESTS=1 xcodebuild \
 ```
 
 Expo tests skip by default during the ordinary native suite. Native and Expo stores are separate.
+
+### Welcome tour verification
+
+Checked October 5, 2026 for the Expo implementation:
+
+- TypeScript strict check, the four existing domain tests, and iOS Hermes export passed.
+- The iPhone 15 Expo Go test passed navigation through all four pages, Back / Next, exiting from each individual page, replaying from Settings, and finishing with Get started.
+- A separate test passed after an explicit Metro reload: the dismissed tour stayed hidden and the app remained accessible.
+- Actual screenshots of all four pages were reviewed for readable content and visible exit / navigation controls: `docs/screenshots/iphone15-welcome-1.png` through `iphone15-welcome-4.png`.
+- Result bundles: ignored `build/WelcomeTour-final.xcresult` and `build/WelcomeTour-reload.xcresult`. The simulator test hides Expo Go's floating development-tools button so it cannot intercept the app's Settings control.
+
+The tour changes do not modify the original SwiftUI app. Physical-device, iPad, landscape, larger-text and comprehensive VoiceOver tour testing remain outstanding. To repeat the reload check, first dismiss the tour, reload Metro, then run only `ExpoSmokeTests/testWelcomeRemainsDismissedAfterReload` with `TEST_RUNNER_DV_EXPO_RELOAD_TEST=1`.

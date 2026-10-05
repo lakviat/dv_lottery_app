@@ -17,6 +17,11 @@ import { HomeScreen, GuideContent } from "./expo-app/HomeScreen";
 import { ApplyScreen } from "./expo-app/ApplyScreen";
 import { PhotosScreen, removePhotoFile } from "./expo-app/PhotosScreen";
 import { EntriesScreen } from "./expo-app/EntriesScreen";
+import { WelcomeTour } from "./expo-app/WelcomeTour";
+import {
+  dismissWelcome,
+  shouldShowWelcome,
+} from "./expo-app/welcomePreference";
 import {
   Records,
   Tab,
@@ -59,17 +64,24 @@ function DVApp() {
   const [saveFailed, setSaveFailed] = useState(false);
   const [guide, setGuide] = useState(false);
   const [settings, setSettings] = useState(false);
+  const [welcome, setWelcome] = useState(false);
+  const replayAfterSettings = useRef(false);
   const [addRequest, setAddRequest] = useState(0);
   const load = () => {
     setLoadError("");
-    void loadRecords()
-      .then((data) => {
+    void Promise.all([loadRecords(), shouldShowWelcome()])
+      .then(([data, showWelcome]) => {
         latest.current = data;
+        setWelcome(showWelcome);
         setRecords(data);
       })
       .catch((e) => setLoadError(e.message || "Saved data could not be read."));
   };
   useEffect(load, []);
+  const closeWelcome = () => {
+    setWelcome(false);
+    void dismissWelcome();
+  };
   const update = (fn: (r: Records) => Records) => {
     if (!latest.current) return;
     const next = fn(latest.current);
@@ -334,7 +346,23 @@ function DVApp() {
         visible={settings}
         title="About & settings"
         onClose={() => setSettings(false)}
+        onDismiss={() => {
+          if (replayAfterSettings.current) {
+            replayAfterSettings.current = false;
+            setWelcome(true);
+          }
+        }}
       >
+        <Button
+          secondary
+          title="How it works"
+          icon="play-circle-outline"
+          testID="replay-welcome-tour"
+          onPress={() => {
+            replayAfterSettings.current = true;
+            setSettings(false);
+          }}
+        />
         <Card>
           <Label>DV Lottery · Expo preview 0.1</Label>
           <Title>Made for your next chapter.</Title>
@@ -384,6 +412,7 @@ function DVApp() {
           onPress={clear}
         />
       </Sheet>
+      {welcome && <WelcomeTour onExit={closeWelcome} />}
     </View>
   );
 }

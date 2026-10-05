@@ -327,10 +327,12 @@ export function Sheet({
   title,
   children,
   onClose,
+  onDismiss,
 }: PropsWithChildren<{
   visible: boolean;
   title: string;
   onClose: () => void;
+  onDismiss?: () => void;
 }>) {
   const insets = useSafeAreaInsets();
   return (
@@ -339,6 +341,7 @@ export function Sheet({
       animationType="slide"
       presentationStyle="pageSheet"
       onRequestClose={onClose}
+      onDismiss={onDismiss}
     >
       <View
         style={{
