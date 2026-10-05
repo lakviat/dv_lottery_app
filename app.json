@@ -1,0 +1,32 @@
+{
+  "expo": {
+    "name": "DV Lottery",
+    "slug": "dv-lottery-app",
+    "version": "0.1.0",
+    "platforms": ["ios"],
+    "orientation": "default",
+    "userInterfaceStyle": "light",
+    "icon": "./DVLottery/Assets.xcassets/AppIcon.appiconset/AppIcon.png",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.dvlottery.expo",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Choose a photo to prepare your DV entry.",
+          "cameraPermission": "Take a photo to prepare your DV entry.",
+          "microphonePermission": false
+        }
+      ],
+      "expo-secure-store",
+      "expo-web-browser",
+      "expo-sharing",
+      "expo-font"
+    ]
+  }
+}

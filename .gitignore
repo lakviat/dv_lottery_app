@@ -1,0 +1,14 @@
+.DS_Store
+build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+.swiftpm/
+node_modules/
+.expo/
+dist/
+expo-env.d.ts
+*.log
+.env
+.env.*
+!.env.example
