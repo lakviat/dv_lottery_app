@@ -40,7 +40,7 @@ const pages = [
     eyebrow: "PRIVATE BY DEFAULT",
     title: "Your information.\nYour control.",
     body: "Your draft, photos and saved entries stay on this device unless you choose to share them. No account needed.",
-    note: "Official websites handle information you enter there. The app does not sync across devices, so keep a separate copy of your confirmation.",
+    note: "Official websites handle information you enter there. Optional email alerts share only your email and consent. Keep a separate copy of your official confirmation.",
     icon: "shield-checkmark-outline" as IconName,
   },
 ];

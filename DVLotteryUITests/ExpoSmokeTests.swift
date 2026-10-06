@@ -2,6 +2,59 @@ import XCTest
 
 /// Opt-in checks for the Expo preview. Start Metro and open its URL in Expo Go first.
 final class ExpoSmokeTests: XCTestCase {
+    @MainActor func testRegistrationAlertsAndMinimalHome() throws {
+        continueAfterFailure = false
+        try XCTSkipUnless(ProcessInfo.processInfo.environment["DV_ALERTS_UI_TESTS"] == "1", "Requires updated Expo Go with notifications and running Metro.")
+        let app = XCUIApplication(bundleIdentifier: ProcessInfo.processInfo.environment["DV_UI_BUNDLE_ID"] ?? "host.exp.Exponent")
+        acceptOpenAppPrompt()
+        app.activate()
+        dismissDevelopmentMenu(app)
+        if app.buttons["tour-skip"].waitForExistence(timeout: 2) { app.buttons["tour-skip"].tap() }
+        if app.buttons["Close"].exists { app.buttons["Close"].tap() }
+        let home = app.descendants(matching: .any).matching(identifier: "tab-home").firstMatch
+        XCTAssertTrue(home.waitForExistence(timeout: 20), app.debugDescription)
+        home.tap()
+        for _ in 0..<3 { app.swipeDown() }
+        XCTAssertTrue(app.staticTexts["Your preparation"].exists)
+        XCTAssertFalse(app.staticTexts["Big possibilities.\nSmall, clear steps."].exists)
+        screenshot("Alerts-Minimal-Home")
+        let alerts = app.buttons["registration-alerts"]
+        scrollTo(alerts, in: app)
+        alerts.tap()
+        XCTAssertTrue(app.staticTexts["Registration alerts"].waitForExistence(timeout: 5))
+        screenshot("Alerts-Preferences")
+        let reminder = app.buttons["registration-reminder-toggle"]
+        scrollTo(reminder, in: app)
+        if app.staticTexts["Weekly reminder is on"].exists { reminder.tap() }
+        XCTAssertTrue(app.staticTexts["Weekly reminder is off"].waitForExistence(timeout: 5))
+        reminder.tap()
+        let system = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        if system.buttons["Allow"].waitForExistence(timeout: 3) { system.buttons["Allow"].tap() }
+        if app.alerts.buttons["Allow"].waitForExistence(timeout: 1) { app.alerts.buttons["Allow"].tap() }
+        if (ProcessInfo.processInfo.environment["DV_UI_BUNDLE_ID"] ?? "host.exp.Exponent") == "host.exp.Exponent" && app.staticTexts["Reminders need the iOS development app"].waitForExistence(timeout: 2) {
+            screenshot("Alerts-Expo-Go-Fallback")
+        } else {
+            XCTAssertTrue(app.staticTexts["Weekly reminder is on"].waitForExistence(timeout: 5), app.debugDescription)
+            screenshot("Alerts-Reminder-Enabled")
+            reminder.tap()
+            XCTAssertTrue(app.staticTexts["Weekly reminder is off"].waitForExistence(timeout: 5))
+        }
+        let request = app.buttons["registration-email-submit"]
+        scrollTo(request, in: app)
+        request.tap()
+        XCTAssertTrue(app.staticTexts["Enter a valid email address."].waitForExistence(timeout: 5))
+        let email = app.textFields["Email for opening alert"]
+        scrollTo(email, in: app)
+        email.tap()
+        email.typeText("test@example.com\n")
+        scrollTo(request, in: app)
+        request.tap()
+        XCTAssertTrue(app.staticTexts["Please agree to the email alert before sending."].waitForExistence(timeout: 5))
+        screenshot("Alerts-Consent-Required")
+        app.buttons["Close"].tap()
+        XCTAssertTrue(home.waitForExistence(timeout: 5))
+    }
+
     /// Run after the passport import test and a complete Metro reload.
     @MainActor func testPassportDetailsPersistAfterReload() throws {
         continueAfterFailure = false

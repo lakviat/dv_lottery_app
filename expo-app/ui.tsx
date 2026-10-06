@@ -176,11 +176,13 @@ export function Toggle({
   detail,
   value,
   onChange,
+  disabled = false,
 }: {
   title: string;
   detail?: string;
   value: boolean;
   onChange: (value: boolean) => void;
+  disabled?: boolean;
 }) {
   return (
     <View style={[s.row, { alignItems: "flex-start", gap: 14 }]}>
@@ -190,6 +192,7 @@ export function Toggle({
       </View>
       <Switch
         accessibilityLabel={title}
+        disabled={disabled}
         value={value}
         onValueChange={onChange}
         trackColor={{ true: C.blue }}

@@ -110,3 +110,19 @@ Checked October 5, 2026:
 - The existing saved-draft test passed after installing the renamed iPhone development app: the fictional imported name, corrected birth date and passport number remained intact. Result: `build/Branding-Data-Retained.xcresult`.
 
 The home-screen name/icon and native splash require a rebuilt installed app; Expo Go retains its own home-screen icon. Final release-build splash timing and physical-device branding remain unverified. Expo documents the preview limitations at https://docs.expo.dev/versions/latest/sdk/splash-screen/.
+
+## Minimal home and registration alerts
+
+Checked October 5, 2026 for the Expo app. The separate SwiftUI prototype is unchanged.
+
+- Removed the promotional hero, introductory slogan and duplicate draft CTA. Home retains one preparation/resume card, photo/guide access, entries and a compact Registration card. Existing draft/entry schemas and storage keys are unchanged.
+- Added consent-based email requests to the website's existing public collector and clear separation between a collected request and an active confirmation-based email service. The existing endpoint's read-only GET was verified; no real contact requests or emails were submitted during tests.
+- TypeScript strict checking, 15 app/domain tests, seven isolated Apps Script service tests, Expo dependency compatibility and final iOS Hermes export passed. Tests cover legacy collector acknowledgements, date/source validation, private-data payload boundaries, consent, transport failure, email confirmation, unsubscribe authentication, deduplication, quota retry, and official-page changes requiring operator review.
+- Rebuilt the Expo iOS development app with `expo-notifications` using Xcode 27. On iPhone 15 simulator, the UI test passed home rendering, opening the alert sheet, permission approval, enabling/canceling the actual native scheduled reminder, and rejecting invalid email/missing consent before network submission. Result: `build/Registration-Alerts-Native.xcresult`. Reviewed actual screenshots in `docs/screenshots/iphone15-alerts-{home,reminder,consent}.png`.
+- The installed Expo Go runtime exposed notification APIs and accepted permission, but rejected scheduling with `ERR_NOTIFICATIONS_FAILED_TO_SCHEDULE`. Both weekly and calendar triggers were tried. The native development build succeeded with the calendar trigger. The app now reports the Expo Go scheduling limitation instead of claiming the reminder is enabled; old development builds without the module also remain usable.
+- The Expo Go UI check subsequently passed the fallback message, usable alert screen and consent validation: `build/Registration-Alerts-Go-Final.xcresult`.
+- Monday reminders are calendar-based at 09:00 device local time, use one stable identifier to avoid duplicates, are optional, and never claim that registration has opened. Notification taps open the alert sheet. Delete-local-data cancels the device reminder; remote email requests require separate unsubscribe/contact.
+
+**Not yet activated:** the Google Apps Script monitoring/email extension in `services/registration-alerts/` requires deployment and owner authorization in the existing notification project. Its live Google runtime, confirmation emails, unsubscribe web forms, source monitoring and delivery have not been tested against production; service tests use mocks. No official registration dates are configured. Monitoring flags source changes to the operator; the operator must verify and publish the official registration window before scheduled opening emails run. This is not instant native remote push.
+
+Physical-device notification presentation, delivery at an actual scheduled time, notification-tap cold launch, iOS permission revocation/recovery and comprehensive iPad/accessibility checks remain to be verified. Payments were not implemented in this change.

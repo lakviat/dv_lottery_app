@@ -17,6 +17,9 @@ import { HomeScreen, GuideContent } from "./expo-app/HomeScreen";
 import { ApplyScreen } from "./expo-app/ApplyScreen";
 import { PhotosScreen, removePhotoFile } from "./expo-app/PhotosScreen";
 import { EntriesScreen } from "./expo-app/EntriesScreen";
+import { RegistrationAlerts, useRegistrationFeed } from "./expo-app/AlertPreferences";
+import { registrationSummary } from "./expo-app/registrationAlerts";
+import { cancelRegistrationReminder, listenForRegistrationReminder } from "./expo-app/registrationReminders";
 import { WelcomeTour } from "./expo-app/WelcomeTour";
 import { clearPassportCache } from "./expo-app/PassportCapture";
 import {
@@ -65,6 +68,10 @@ function DVApp() {
   const [saveFailed, setSaveFailed] = useState(false);
   const [guide, setGuide] = useState(false);
   const [settings, setSettings] = useState(false);
+  const [alerts, setAlerts] = useState(false);
+  const alertStatus = useRegistrationFeed();
+  const alertsAfterSettings = useRef(false);
+  useEffect(() => listenForRegistrationReminder(() => setAlerts(true)), []);
   const [welcome, setWelcome] = useState(false);
   const replayAfterSettings = useRef(false);
   const [addRequest, setAddRequest] = useState(0);
@@ -134,7 +141,7 @@ function DVApp() {
   const clear = () =>
     Alert.alert(
       "Delete all app data?",
-      "This deletes your local draft, saved entry records and app photo copies. It cannot be undone.",
+      "This deletes your local draft, saved entry records and app photo copies, and cancels the device reminder. Email alert requests are separate; use the email unsubscribe link or contact the service to cancel. This cannot be undone.",
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -146,6 +153,7 @@ function DVApp() {
             const blank = makeRecords();
             queue.current = queue.current
               .then(async () => {
+                await cancelRegistrationReminder();
                 await saveRecords(blank);
                 latest.current = blank;
                 setRecords(blank);
@@ -271,6 +279,8 @@ function DVApp() {
       {tab === "Home" && (
         <HomeScreen
           records={records}
+          alerts={() => setAlerts(true)}
+          registrationStatus={registrationSummary(alertStatus.feed)}
           apply={apply}
           photos={() => setTab("Photos")}
           entries={() => setTab("My Entries")}
@@ -361,6 +371,10 @@ function DVApp() {
         title="About & settings"
         onClose={() => setSettings(false)}
         onDismiss={() => {
+          if (alertsAfterSettings.current) {
+            alertsAfterSettings.current = false;
+            setAlerts(true);
+          }
           if (replayAfterSettings.current) {
             replayAfterSettings.current = false;
             setWelcome(true);
@@ -377,6 +391,8 @@ function DVApp() {
             setSettings(false);
           }}
         />
+        <Button secondary title="Registration alerts" icon="notifications-outline"
+          onPress={() => { alertsAfterSettings.current = true; setSettings(false); }} />
         <Card>
           <BrandMark size={58} />
           <Label>{APP_NAME} · Expo preview 0.1</Label>
@@ -395,7 +411,7 @@ function DVApp() {
           <Body>
             Draft details and entry records are stored with iOS Keychain through
             Expo SecureStore. Photo copies are kept in the Expo app’s local
-            storage. There is no account or cloud sync.
+            storage. There is no account or cloud sync for those records. If you request an email alert, only your email and consent are sent to Green Card Application Services through its Google service.
           </Body>
           <Body muted>
             Expo Go is a development preview. Its storage and system permissions
@@ -427,6 +443,7 @@ function DVApp() {
           onPress={clear}
         />
       </Sheet>
+      <RegistrationAlerts visible={alerts && !welcome && !settings && !guide} onClose={() => setAlerts(false)} status={alertStatus} />
       {welcome && <WelcomeTour onExit={closeWelcome} />}
     </View>
   );

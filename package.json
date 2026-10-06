@@ -10,7 +10,7 @@
     "start": "expo start --go",
     "ios": "expo start --go --ios",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test expo-app/*.test.ts",
+    "test": "tsx --test expo-app/*.test.ts && node --test services/registration-alerts/service.test.cjs",
     "start:dev": "expo start --dev-client",
     "ios:dev": "expo run:ios"
   },
@@ -25,6 +25,7 @@
     "expo-image-manipulator": "~57.0.20",
     "expo-image-picker": "~57.0.20",
     "expo-linear-gradient": "~57.0.2",
+    "expo-notifications": "~57.0.21",
     "expo-secure-store": "~57.0.4",
     "expo-sharing": "~57.0.22",
     "expo-splash-screen": "~57.0.9",

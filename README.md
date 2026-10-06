@@ -41,6 +41,18 @@ The Expo app opens with a short, four-page welcome tour: getting started without
 
 Skipping or finishing stores a separate on-device preference, without changing a draft, photos, entries, or the selected tab. To replay from the beginning, open **Settings → How it works**. Guidance can scroll on small screens or with larger text while the exit and navigation controls remain available. The original SwiftUI implementation is unchanged by this Expo tour update.
 
+### Registration alerts and the simpler home
+
+Home now starts with one preparation/resume card, followed by photos, the guide, saved entries and a compact Registration card. The large promotional banner and duplicate resume button are removed. **Home → Registration alerts** (also available in Settings) offers:
+
+- An optional local notification every Monday at 9 AM in the device's local time, with permission requested only after tapping Enable. It is explicitly a reminder to check official dates, not an announcement that registration has opened. It can be turned off and is canceled by Delete all local app data.
+- An optional email alert request through the website's existing public Google Apps Script collector. Explicit consent is required; only email/contact-request metadata is sent, never draft/passport/photo records. No account is created. The current collector acknowledges receipt only, so the app says automatic emails are not yet active.
+- A refreshable verified-window feed once the upgraded service is deployed, with direct State Department links and an honest fallback for missing dates or connectivity. No October 7 date is assumed.
+
+`npm ci` installs the added `expo-notifications` dependency. Restart Metro after pulling. Local reminders passed in the rebuilt iOS development app (`npm run ios:dev`). The tested Expo Go runtime rejected scheduling; the app displays a development-build message instead of claiming the reminder is on. Older installed development builds also need rebuilding. Expo Go notification permissions belong to Expo Go. Native remote opening push is not implemented.
+
+The server implementation and activation checklist are in [services/registration-alerts/README.md](services/registration-alerts/README.md). **A Git push does not activate email monitoring/delivery.** The existing Apps Script owner must deploy the extension, authorize and install its trigger, then enable sending. Opening dates require review against an official State Department announcement before the worker sends messages. Email requests are separate from local app data; unsubscribe by email link or contact the service to cancel a queued request.
+
 ### Expo checks
 
 ```sh

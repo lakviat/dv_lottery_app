@@ -1,6 +1,5 @@
 import React from "react";
 import { Pressable, Text, View, useWindowDimensions } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
 import { Records, draftIssues, official, steps } from "./models";
 import {
   Badge,
@@ -9,7 +8,6 @@ import {
   C,
   Card,
   Icon,
-  Label,
   LinkRow,
   Notice,
   Row,
@@ -25,12 +23,16 @@ export function HomeScreen({
   photos,
   entries,
   guide,
+  alerts,
+  registrationStatus,
 }: {
   records: Records;
   apply: () => void;
   photos: () => void;
   entries: () => void;
   guide: () => void;
+  alerts: () => void;
+  registrationStatus: string;
 }) {
   const { width } = useWindowDimensions();
   const wide = width >= 760;
@@ -39,156 +41,6 @@ export function HomeScreen({
   ).length;
   return (
     <Screen wide>
-      <View style={{ gap: 6 }}>
-        <Label>A little preparation. A new possibility.</Label>
-        <Text
-          style={{
-            fontSize: wide ? 34 : 29,
-            fontWeight: "700",
-            color: C.navy,
-            letterSpacing: -0.8,
-          }}
-        >
-          Your DV journey starts here.
-        </Text>
-      </View>
-      <LinearGradient
-        colors={["#16365B", "#0C2442"]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={{
-          borderRadius: 25,
-          padding: wide ? 32 : 24,
-          overflow: "hidden",
-        }}
-      >
-        <View
-          style={{
-            position: "absolute",
-            width: 230,
-            height: 230,
-            borderRadius: 115,
-            backgroundColor: "#244265",
-            right: -95,
-            top: -45,
-            opacity: 0.5,
-          }}
-        />
-        <View style={{ flexDirection: "row", gap: 24, alignItems: "center" }}>
-          <View style={{ flex: 1, gap: 15 }}>
-            <View
-              style={{
-                alignSelf: "flex-start",
-                paddingHorizontal: 10,
-                paddingVertical: 6,
-                backgroundColor: "#2D4767",
-                borderRadius: 7,
-              }}
-            >
-              <Text
-                style={{
-                  color: "#DCE7F7",
-                  fontSize: 11,
-                  fontWeight: "700",
-                  letterSpacing: 1,
-                }}
-              >
-                DIVERSITY VISA PROGRAM
-              </Text>
-            </View>
-            <Text
-              style={{
-                fontSize: wide ? 36 : 29,
-                lineHeight: wide ? 42 : 35,
-                fontWeight: "700",
-                color: C.white,
-                letterSpacing: -0.5,
-              }}
-            >
-              Big possibilities.{"\n"}Small, clear steps.
-            </Text>
-            <Text
-              style={{
-                color: "#C9D7E8",
-                lineHeight: 22,
-                fontSize: 15,
-                maxWidth: 440,
-              }}
-            >
-              Prepare your entry, get your photos ready, and keep every year’s
-              journey together.
-            </Text>
-            <Pressable
-              accessibilityRole="button"
-              onPress={apply}
-              style={{
-                alignSelf: "flex-start",
-                borderRadius: 12,
-                backgroundColor: C.white,
-                paddingVertical: 13,
-                paddingHorizontal: 17,
-                flexDirection: "row",
-                gap: 10,
-                alignItems: "center",
-              }}
-            >
-              <Text style={{ fontSize: 14, fontWeight: "700", color: C.navy }}>
-                {records.draft.started
-                  ? "Continue your draft"
-                  : "Prepare a new entry"}
-              </Text>
-              <Icon name="arrow-forward" size={18} />
-            </Pressable>
-          </View>
-          {wide && (
-            <View
-              style={{
-                width: 176,
-                height: 215,
-                backgroundColor: "#365579",
-                borderRadius: 16,
-                borderWidth: 1,
-                borderColor: "#6382A6",
-                transform: [{ rotate: "8deg" }],
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 14,
-              }}
-            >
-              <Text
-                style={{
-                  color: "#D5E0ED",
-                  fontWeight: "600",
-                  letterSpacing: 4,
-                }}
-              >
-                DIVERSITY
-              </Text>
-              <Icon name="globe-outline" size={74} color="#E7D3A8" />
-              <Text
-                style={{ color: "#D5E0ED", fontSize: 12, letterSpacing: 4 }}
-              >
-                YOUR JOURNEY
-              </Text>
-              <View
-                style={{
-                  width: 55,
-                  height: 4,
-                  borderRadius: 2,
-                  backgroundColor: "#D35C64",
-                }}
-              />
-            </View>
-          )}
-        </View>
-      </LinearGradient>
-      <Notice
-        title="Next registration: awaiting announcement"
-        icon="calendar-outline"
-      >
-        October 7 is not confirmed. We’ll point you to the official announcement
-        so you can check the current entry window.
-      </Notice>
       <View style={{ flexDirection: wide ? "row" : "column", gap: 18 }}>
         <View style={{ flex: 1 }}>
           <Card style={{ height: "100%" }}>
@@ -221,7 +73,6 @@ export function HomeScreen({
                 : "Start with a passport scan or type your details, then prepare photos and review."}
             </Body>
             <Button
-              secondary
               title={
                 records.draft.started
                   ? "Continue preparation"
@@ -303,24 +154,13 @@ export function HomeScreen({
         />
       </Card>
       <Card>
-        <Label>Official resources</Label>
-        <LinkRow
-          title="Registration announcements"
-          detail="U.S. Department of State"
-          url={official.dates}
-          icon="calendar-outline"
-        />
-        <LinkRow
-          title="Entrant Status Check"
-          detail="Check your official selection result"
-          url={official.results}
-        />
-        <LinkRow
-          title="Current DV instructions"
-          detail="Read the rules for your program year"
-          url={official.instructions}
-          icon="document-text-outline"
-        />
+        <Row>
+          <Title>Registration</Title>
+          <Icon name="notifications-outline" color={C.blue} />
+        </Row>
+        <Body muted>{registrationStatus}</Body>
+        <Button secondary title="Registration alerts" testID="registration-alerts"
+          icon="notifications-outline" onPress={alerts} />
       </Card>
       <Text style={[s.small, { textAlign: "center" }]}>
         Independent DV companion · Not a government app{"\n"}Guidance reviewed
