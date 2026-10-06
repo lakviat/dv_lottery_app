@@ -36,7 +36,7 @@ Reviewed actual simulator screenshots for Home, Apply, Photos, and My Entries. C
 - Face/background/lighting acceptance. File checks and user review cannot certify a photo.
 - Minimum-version device execution, landscape and split-screen combinations, comprehensive Dynamic Type/VoiceOver, and localization.
 - Device-lock file-protection behavior, app-specific biometric lock, recovery/sync, migration UX, and production security review.
-- Signing, TestFlight, App Store review, release metadata, support and privacy-policy publication.
+- App Store review, public release metadata, support and privacy-policy publication. Expo signing and internal TestFlight distribution are recorded in `docs/TESTFLIGHT.md`.
 
 No application or personal data was submitted to a government or commercial service during development.
 
@@ -126,3 +126,15 @@ Checked October 5, 2026 for the Expo app. The separate SwiftUI prototype is unch
 **Not yet activated:** the Google Apps Script monitoring/email extension in `services/registration-alerts/` requires deployment and owner authorization in the existing notification project. Its live Google runtime, confirmation emails, unsubscribe web forms, source monitoring and delivery have not been tested against production; service tests use mocks. No official registration dates are configured. Monitoring flags source changes to the operator; the operator must verify and publish the official registration window before scheduled opening emails run. This is not instant native remote push.
 
 Physical-device notification presentation, delivery at an actual scheduled time, notification-tap cold launch, iOS permission revocation/recovery and comprehensive iPad/accessibility checks remain to be verified. Payments were not implemented in this change.
+
+## Gold DV logo refresh
+
+Checked October 6, 2026, for version `0.1.0 (2)`.
+
+- Imported the user-approved full-square gold DV/flag PNG directly and embedded the sRGB profile. No artwork regeneration or redrawing was performed.
+- Exported the opaque 1024px app icon and transparent-corner 512px in-app mark. Expo and SwiftUI copies match byte-for-byte. All shared header, loading, welcome, About, launch-screen and native privacy-cover references use these assets.
+- TypeScript checking, the device Release archive, and simulator Release build passed. The archive reports build `2`, includes `main.jsbundle`, and contains the exact new in-app mark bytes. The generated native launch-screen artwork was visually reviewed.
+- The existing welcome-tour navigation/exit/replay test passed against the standalone Release app on both iPhone 15 and iPad Air 11-inch (M4), with zero failures or skips. Result: `build/GoldLogo-Tour.xcresult`.
+- Reviewed the captured first-page screenshots for the actual new artwork and layout: `docs/screenshots/iphone15-gold-logo-welcome.png` and `docs/screenshots/ipad-gold-logo-welcome.png`.
+
+Physical-device launch timing remains a TestFlight check. Bundle identifiers, storage keys, and user-data schemas are unchanged.

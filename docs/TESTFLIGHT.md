@@ -10,6 +10,7 @@ SwiftUI prototype and must not be used for this upload.
 - Bundle identifier: `com.dvlottery.expo`
 - Apple Developer team: `ZDK3K9BT5S`
 - First beta: version `0.1.0`, build `1`
+- Gold DV logo refresh: version `0.1.0`, build `2`
 - App Store Connect app ID: `6819749953`
 
 `app.json` is the source of truth for the team and version. Increment
@@ -82,6 +83,22 @@ precompiled ExpoImageManipulator, React, ReactNativeDependencies, SDWebImage,
 and Hermes frameworks. Crash traces inside those dependencies may have limited
 symbolication; the app's own dSYM is present in the archive. Preserve the archive
 and upload logs when investigating beta crashes.
+
+## Gold DV logo refresh — build 2
+
+Version `0.1.0 (2)` was uploaded successfully on October 6, 2026 from source
+commit `dd0d594`. It replaces the eagle logo with the user-approved gold DV
+medallion and flag across the home-screen icon, native splash, loading state,
+app header, welcome tour, and About screen. Matching assets are also updated in
+the separate SwiftUI prototype.
+
+Apple processing completed and build 2 is assigned to the existing **Internal
+Testing** group. Install or update to `0.1.0 (2)` in TestFlight to review the logo.
+
+TypeScript checking and both Release builds passed. The existing welcome-tour
+check passed on iPhone 15 and iPad Air with no failures or skips, and captured
+screenshots were reviewed. The same non-blocking dependency dSYM warnings from
+the first upload remain. No application logic or data schema was changed.
 
 ## Beta test notes
 

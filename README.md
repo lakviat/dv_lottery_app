@@ -17,6 +17,8 @@ For standalone iOS beta builds, see [TestFlight setup and test notes](docs/TESTF
 
 Reload Expo Go to see the in-app branding. Installing a rebuilt iOS app is required to change the installed home-screen name/icon and native splash configuration. Expo Go retains its own home-screen icon. The Expo slug, iOS bundle identifiers and storage keys remain stable so existing drafts and saved records are retained when updating the same app. The native splash dismisses normally; no artificial loading delay has been added.
 
+Current logo previews from the standalone Release app: [iPhone 15](docs/screenshots/iphone15-gold-logo-welcome.png) and [iPad](docs/screenshots/ipad-gold-logo-welcome.png).
+
 ## Run in Expo Go
 
 Use Node 22.13+ or Node 24.3+ (`nvm use` selects the checked-in Node 24 preference) and an Expo Go version compatible with **Expo SDK 57**. Android and web are outside this prototype’s scope.
