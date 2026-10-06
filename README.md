@@ -4,6 +4,8 @@ An iPhone and iPad companion for preparing a Diversity Visa entry, managing fami
 
 The **Expo / React Native preview** runs from the repository root in Expo Go. The original **SwiftUI app** remains in `DVLottery/` with its Xcode project. They are separate implementations with separate local storage; they do not synchronize records.
 
+For standalone iOS beta builds, see [TestFlight setup and test notes](docs/TESTFLIGHT.md).
+
 ## App branding
 
 **DV Lottery Tracker** uses the approved eagle, stars and stripes artwork on the home-screen icon, launch screen, opening state, app header, welcome tour and About screen. The original SwiftUI prototype shares the artwork and display name, including its privacy cover.
