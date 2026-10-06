@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { Alert, Image, Text, View } from "react-native";
+import React, { useRef, useState } from "react";
+import { Alert, Image, Platform, StyleSheet, Text, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import * as ImageManipulator from "expo-image-manipulator";
 import * as FileSystem from "expo-file-system/legacy";
@@ -21,19 +21,21 @@ import {
   Button,
   C,
   Card,
-  Empty,
   Field,
-  Label,
+  FormSection,
+  Icon,
   LinkRow,
   Notice,
-  Row,
+  PageHeading,
   Screen,
   Select,
   Sheet,
   Stack,
   Title,
   Toggle,
+  feedback,
   s,
+  useFormNavigation,
 } from "./ui";
 
 export const photoDirectory = `${FileSystem.documentDirectory}dv-lottery-photos/`;
@@ -52,12 +54,35 @@ export function PhotosScreen({
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<Photo | null>(null);
   const [dateConfirmed, setDateConfirmed] = useState(false);
+  const [showErrors, setShowErrors] = useState(false);
+  const [fromCamera, setFromCamera] = useState(false);
+  const [editingID, setEditingID] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+  const retakeAfterDismiss = useRef<boolean | null>(null);
+  const reviewForm = useFormNavigation();
+  const editing = records.photos.find((photo) => photo.id === editingID);
+  const options = records.draft.people.map(
+    (person, index) =>
+      `${personName(person)} · ${person.relationship} ${index + 1}`,
+  );
+  const assignedLabel = (photo: Photo) =>
+    options[
+      records.draft.people.findIndex((person) => person.id === photo.personId)
+    ] || "Previous draft — choose a person";
+  const photoName = (photo: Photo) => {
+    const person = records.draft.people.find(
+      (person) => person.id === photo.personId,
+    );
+    return person ? personName(person) : photo.name;
+  };
   const pick = async (camera: boolean) => {
+    if (busy) return;
     setBusy(true);
+    setSaved(false);
     try {
       if (camera) {
-        const p = await ImagePicker.requestCameraPermissionsAsync();
-        if (!p.granted) {
+        const permission = await ImagePicker.requestCameraPermissionsAsync();
+        if (!permission.granted) {
           Alert.alert(
             "Camera access needed",
             "Allow camera access in iOS Settings, or choose an existing photo.",
@@ -65,7 +90,7 @@ export function PhotosScreen({
           return;
         }
       }
-      const options: ImagePicker.ImagePickerOptions = {
+      const pickerOptions: ImagePicker.ImagePickerOptions = {
         mediaTypes: ["images"],
         allowsEditing: true,
         aspect: [1, 1],
@@ -73,8 +98,8 @@ export function PhotosScreen({
         exif: false,
       };
       const result = camera
-        ? await ImagePicker.launchCameraAsync(options)
-        : await ImagePicker.launchImageLibraryAsync(options);
+        ? await ImagePicker.launchCameraAsync(pickerOptions)
+        : await ImagePicker.launchImageLibraryAsync(pickerOptions);
       if (result.canceled || !result.assets.length) return;
       const source = result.assets[0];
       const side = Math.min(source.width, source.height);
@@ -122,6 +147,8 @@ export function PhotosScreen({
       const uri = `${photoDirectory}${photoID}.jpg`;
       await FileSystem.copyAsync({ from: output, to: uri });
       await FileSystem.deleteAsync(output, { idempotent: true });
+      setShowErrors(false);
+      setFromCamera(camera);
       setDateConfirmed(camera);
       setPending({
         id: photoID,
@@ -147,22 +174,63 @@ export function PhotosScreen({
   const close = () => {
     if (pending) void removePhotoFile(pending.uri);
     setPending(null);
+    setShowErrors(false);
+  };
+  const retake = () => {
+    retakeAfterDismiss.current = fromCamera;
+    close();
+    // iOS must dismiss its review sheet before presenting the system picker.
+    if (Platform.OS !== "ios") {
+      retakeAfterDismiss.current = null;
+      void pick(fromCamera);
+    }
+  };
+  const onReviewDismiss = () => {
+    const camera = retakeAfterDismiss.current;
+    retakeAfterDismiss.current = null;
+    if (camera !== null) void pick(camera);
+  };
+  const pendingErrors = {
+    takenOn:
+      pending && !validPastDate(pending.takenOn)
+        ? "Enter the original capture date as YYYY-MM-DD, not a future date."
+        : undefined,
+    dateConfirmed: !dateConfirmed
+      ? "Confirm when this photo was originally taken."
+      : undefined,
   };
   const save = () => {
     if (!pending) return;
-    if (!validPastDate(pending.takenOn) || !dateConfirmed) {
-      Alert.alert(
-        "Confirm the photo date",
-        "Enter the date the original photo was taken (YYYY-MM-DD) and confirm it.",
-      );
+    if (Object.values(pendingErrors).some(Boolean)) {
+      setShowErrors(true);
+      reviewForm.focusFirst(pendingErrors);
+      feedback("error");
       return;
     }
-    update((r) => ({
-      ...r,
-      photos: [pending, ...r.photos],
-      draft: { ...r.draft, reviewed: false },
+    update((records) => ({
+      ...records,
+      photos: [pending, ...records.photos],
+      draft: { ...records.draft, reviewed: false },
     }));
+    feedback("success");
     setPending(null);
+    setSaved(true);
+    setShowErrors(false);
+  };
+  const changePhoto = (photo: Photo, patch: Partial<Photo>) =>
+    update((records) => ({
+      ...records,
+      photos: records.photos.map((item) =>
+        item.id === photo.id ? { ...item, ...patch } : item,
+      ),
+      draft: { ...records.draft, reviewed: false },
+    }));
+  const assign = (photo: Photo, label: string, isPending = false) => {
+    const person = records.draft.people[options.indexOf(label)];
+    if (!person) return;
+    const patch = { personId: person.id, name: personName(person) };
+    if (isPending) setPending({ ...photo, ...patch });
+    else changePhoto(photo, patch);
   };
   const remove = (photo: Photo) =>
     Alert.alert(
@@ -174,11 +242,12 @@ export function PhotosScreen({
           text: "Delete",
           style: "destructive",
           onPress: () => {
-            update((r) => ({
-              ...r,
-              photos: r.photos.filter((p) => p.id !== photo.id),
-              draft: { ...r.draft, reviewed: false },
+            update((records) => ({
+              ...records,
+              photos: records.photos.filter((item) => item.id !== photo.id),
+              draft: { ...records.draft, reviewed: false },
             }));
+            setEditingID(null);
             void removePhotoFile(photo.uri);
           },
         },
@@ -200,25 +269,34 @@ export function PhotosScreen({
       );
     }
   };
+  const statusLabel = (photo: Photo) =>
+    photoReviewed(photo)
+      ? "Reviewed by you"
+      : photoRecent(photo)
+        ? "Needs review"
+        : "New photo needed";
+  const statusTone = (photo: Photo) =>
+    photoReviewed(photo) ? ("green" as const) : ("warm" as const);
+  const peopleReady = records.draft.people.filter((person) =>
+    records.photos.some(
+      (photo) => photo.personId === person.id && photoReviewed(photo),
+    ),
+  ).length;
   return (
     <Screen>
-      <View style={{ gap: 8 }}>
-        <Label>Photo studio</Label>
-        <Text style={{ fontSize: 30, fontWeight: "700", color: C.navy }}>
-          A photo for each person
-        </Text>
-        <Body muted>
-          Prepare, review and keep your family’s photos together.
-        </Body>
-      </View>
-      <Card>
-        <Badge>600 × 600 px · JPEG · ≤240 kB</Badge>
-        <Title>Start with a good original</Title>
-        <Body muted>
-          Use a recent color photo, a plain white or off-white background, a
-          neutral expression and even lighting. No glasses, filters or
-          retouching.
-        </Body>
+      <PageHeading eyebrow="DV photo" title="A photo for each person">
+        Get the file ready, then review the details that matter.
+      </PageHeading>
+      <Card style={styles.hero}>
+        <View style={styles.heroTop}>
+          <View style={styles.cameraIcon}>
+            <Icon name="camera-outline" size={30} color={C.blue} />
+          </View>
+          <View style={{ flex: 1, gap: 5 }}>
+            <Title>Start with your photo</Title>
+            <Body muted>Face forward. Plain background. Even light.</Body>
+          </View>
+        </View>
         <Button
           title="Take a photo"
           icon="camera-outline"
@@ -233,226 +311,273 @@ export function PhotosScreen({
           onPress={() => void pick(false)}
         />
         <Text style={s.small}>
-          Position your head and shoulders in the square crop. We resize and
-          compress the image; we never alter your face or background.
+          Keep your head and shoulders in the square crop. No glasses, filters
+          or retouching.
         </Text>
-      </Card>
-      <Row>
-        <Title>Your photo library</Title>
-        <Badge>{records.photos.length} saved</Badge>
-      </Row>
-      {!records.photos.length ? (
-        <Card>
-          <Empty icon="images-outline" title="Your photos belong here">
-            Add a photo, assign it to a person, then review it against the
-            official examples.
-          </Empty>
-        </Card>
-      ) : (
-        records.photos.map((photo) => (
-          <Card key={photo.id}>
-            <View style={{ flexDirection: "row", gap: 18 }}>
-              <Image
-                source={{ uri: photo.uri }}
-                accessibilityLabel={`Photo for ${photo.name}`}
-                style={{
-                  width: 104,
-                  height: 104,
-                  borderRadius: 15,
-                  backgroundColor: C.bg,
-                }}
-              />
-              <View style={{ flex: 1, gap: 8 }}>
-                <Text style={s.title}>
-                  {records.draft.people.find((p) => p.id === photo.personId)
-                    ? personName(
-                        records.draft.people.find(
-                          (p) => p.id === photo.personId,
-                        )!,
-                      )
-                    : photo.name}
-                </Text>
-                <Badge tone={photoReviewed(photo) ? "green" : "warm"}>
-                  {photoReviewed(photo)
-                    ? "User reviewed"
-                    : photoRecent(photo)
-                      ? "Review needed"
-                      : "New photo needed"}
-                </Badge>
-                <Text style={s.small}>
-                  Taken {photo.takenOn}
-                  {"\n"}600 × 600 · {Math.ceil(photo.bytes / 1000)} kB
-                </Text>
-              </View>
-            </View>
-            <Toggle
-              title="Composition reviewed"
-              detail="Check head size, eye position, lighting, expression and background against official examples."
-              value={photo.composition}
-              onChange={(v) =>
-                update((r) => ({
-                  ...r,
-                  photos: r.photos.map((p) =>
-                    p.id === photo.id ? { ...p, composition: v } : p,
-                  ),
-                  draft: { ...r.draft, reviewed: false },
-                }))
-              }
-            />
-            <Toggle
-              title="Not used in a previous DV entry"
-              value={photo.notReused}
-              onChange={(v) =>
-                update((r) => ({
-                  ...r,
-                  photos: r.photos.map((p) =>
-                    p.id === photo.id ? { ...p, notReused: v } : p,
-                  ),
-                  draft: { ...r.draft, reviewed: false },
-                }))
-              }
-            />
-            <Select
-              label="Assigned to"
-              value={
-                records.draft.people.some((p) => p.id === photo.personId)
-                  ? records.draft.people.map(
-                      (p, i) => `${personName(p)} · ${p.relationship} ${i + 1}`,
-                    )[
-                      records.draft.people.findIndex(
-                        (p) => p.id === photo.personId,
-                      )
-                    ]
-                  : "Previous draft — choose a person"
-              }
-              options={records.draft.people.map(
-                (p, i) => `${personName(p)} · ${p.relationship} ${i + 1}`,
-              )}
-              onChange={(value) => {
-                const index = records.draft.people.findIndex(
-                  (p, i) =>
-                    `${personName(p)} · ${p.relationship} ${i + 1}` === value,
-                );
-                if (index >= 0)
-                  update((r) => ({
-                    ...r,
-                    photos: r.photos.map((p) =>
-                      p.id === photo.id
-                        ? {
-                            ...p,
-                            personId: r.draft.people[index].id,
-                            name: personName(r.draft.people[index]),
-                          }
-                        : p,
-                    ),
-                  }));
-              }}
-            />
-            <View style={{ flexDirection: "row", gap: 10 }}>
-              <View style={{ flex: 2 }}>
-                <Button
-                  secondary
-                  title="Export JPEG"
-                  icon="share-outline"
-                  onPress={() => void share(photo)}
-                />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Button
-                  secondary
-                  title="Delete"
-                  onPress={() => remove(photo)}
-                />
-              </View>
-            </View>
-          </Card>
-        ))
-      )}
-      <Notice title="Preparation is not approval">
-        Photo dates and visual checks are your own review. These checks cannot
-        guarantee acceptance. Use a photo taken within the last six months.
-      </Notice>
-      <Card>
         <LinkRow
-          title="Official photo requirements"
-          detail="See accepted and rejected examples"
+          title="See photo guidance"
+          detail="Official examples and requirements"
           url={official.photos}
         />
       </Card>
-      <Sheet visible={!!pending} title="Review your photo" onClose={close}>
+      {saved && (
+        <View accessibilityRole="alert" style={styles.success}>
+          <Icon name="checkmark-circle" color={C.green} />
+          <Text style={[s.fieldLabel, { color: C.green, flex: 1 }]}>
+            Photo saved on this device
+          </Text>
+        </View>
+      )}
+      <View style={{ gap: 6 }}>
+        <Title>Your photo library</Title>
+        <Body muted>
+          {peopleReady} of {records.draft.people.length} people have a photo
+          reviewed by you.
+        </Body>
+      </View>
+      {!records.photos.length ? (
+        <View style={styles.empty}>
+          <Icon name="person-circle-outline" size={42} color={C.blue} />
+          <View style={{ flex: 1, gap: 4 }}>
+            <Text style={s.fieldLabel}>Your first photo starts here</Text>
+            <Text style={s.small}>
+              Take or choose a photo above. We’ll create a 600 × 600 JPEG and
+              keep it with your entry.
+            </Text>
+          </View>
+        </View>
+      ) : (
+        records.photos.map((photo) => (
+          <Card key={photo.id}>
+            <View style={styles.photoRow}>
+              <Image
+                source={{ uri: photo.uri }}
+                accessibilityLabel={`Photo for ${photoName(photo)}`}
+                style={styles.thumbnail}
+              />
+              <View style={{ flex: 1, gap: 8 }}>
+                <Text style={s.title}>{photoName(photo)}</Text>
+                <Badge tone={statusTone(photo)}>{statusLabel(photo)}</Badge>
+                <Text style={s.small}>Taken {photo.takenOn}</Text>
+              </View>
+            </View>
+            <Text style={s.small}>
+              600 × 600 JPEG · {Math.ceil(photo.bytes / 1000)} kB · Saved on
+              this device
+            </Text>
+            <Button
+              secondary
+              title={
+                photoReviewed(photo) ? "View & edit review" : "Review photo"
+              }
+              icon="image-outline"
+              onPress={() => setEditingID(photo.id)}
+            />
+          </Card>
+        ))
+      )}
+      <Text style={s.small}>
+        File size and dimensions are prepared automatically. Composition and
+        capture dates need your review; the app cannot guarantee government
+        acceptance.
+      </Text>
+      <Sheet
+        visible={!!pending}
+        title="Review your photo"
+        onClose={close}
+        onDismiss={onReviewDismiss}
+        form={reviewForm}
+        footer={
+          <Stack gap={8}>
+            <Button title="Use this photo" icon="checkmark" onPress={save} />
+            <Button
+              variant="tertiary"
+              title={fromCamera ? "Retake" : "Choose another photo"}
+              onPress={retake}
+            />
+          </Stack>
+        }
+      >
         {pending && (
-          <Stack>
+          <Stack gap={24}>
             <Image
               source={{ uri: pending.uri }}
-              style={{
-                width: "100%",
-                maxWidth: 360,
-                aspectRatio: 1,
-                alignSelf: "center",
-                borderRadius: 20,
-              }}
+              accessibilityLabel="Preview of your prepared photo"
+              style={styles.preview}
             />
-            <Badge>
-              600 × 600 px · {Math.ceil(pending.bytes / 1000)} kB JPEG
+            <Badge tone="green">
+              File ready · 600 × 600 JPEG · {Math.ceil(pending.bytes / 1000)} kB
             </Badge>
-            <Select
-              label="This photo belongs to"
-              value={
-                records.draft.people.map(
-                  (p, i) => `${personName(p)} · ${p.relationship} ${i + 1}`,
-                )[
-                  records.draft.people.findIndex(
-                    (p) => p.id === pending.personId,
-                  )
-                ]
-              }
-              options={records.draft.people.map(
-                (p, i) => `${personName(p)} · ${p.relationship} ${i + 1}`,
+            <FormSection title="Photo details">
+              <Select
+                label="This photo belongs to"
+                value={assignedLabel(pending)}
+                options={options}
+                onChange={(value) => assign(pending, value, true)}
+              />
+              <Field
+                fieldId="takenOn"
+                label="Original photo taken on"
+                placeholder="YYYY-MM-DD"
+                value={pending.takenOn}
+                keyboardType="numbers-and-punctuation"
+                textContentType="none"
+                autoCapitalize="none"
+                error={showErrors ? pendingErrors.takenOn : undefined}
+                onChangeText={(value) => {
+                  setPending({ ...pending, takenOn: value });
+                  setDateConfirmed(false);
+                }}
+                help="Use the capture date, not the download or editing date."
+              />
+              <Toggle
+                fieldId="dateConfirmed"
+                title="I confirm the original capture date"
+                value={dateConfirmed}
+                onChange={setDateConfirmed}
+                error={showErrors ? pendingErrors.dateConfirmed : undefined}
+              />
+            </FormSection>
+            <FormSection
+              title="Your visual review"
+              description="You can finish these checks now or return to them later."
+            >
+              <Toggle
+                title="I reviewed the official composition rules"
+                detail="Check head size, eye position, background and lighting."
+                value={pending.composition}
+                onChange={(value) =>
+                  setPending({ ...pending, composition: value })
+                }
+              />
+              <Toggle
+                title="Not used in a previous DV entry"
+                value={pending.notReused}
+                onChange={(value) =>
+                  setPending({ ...pending, notReused: value })
+                }
+              />
+              <LinkRow title="Review photo examples" url={official.photos} />
+            </FormSection>
+            {!photoRecent(pending) &&
+              pending.takenOn &&
+              validPastDate(pending.takenOn) && (
+                <Notice title="A more recent photo is needed">
+                  You can keep this photo in your library, but your DV entry
+                  needs one taken within the last six months.
+                </Notice>
               )}
-              onChange={(value) => {
-                const p = records.draft.people.find(
-                  (p, i) =>
-                    `${personName(p)} · ${p.relationship} ${i + 1}` === value,
-                );
-                if (p)
-                  setPending({
-                    ...pending,
-                    personId: p.id,
-                    name: personName(p),
-                  });
-              }}
+          </Stack>
+        )}
+      </Sheet>
+      <Sheet
+        visible={!!editing}
+        title="Your photo review"
+        onClose={() => setEditingID(null)}
+        footer={
+          <Button
+            title="Done"
+            icon="checkmark"
+            onPress={() => {
+              if (editing && photoReviewed(editing)) feedback("success");
+              setEditingID(null);
+            }}
+          />
+        }
+      >
+        {editing && (
+          <Stack gap={24}>
+            <Image
+              source={{ uri: editing.uri }}
+              accessibilityLabel={`Photo for ${photoName(editing)}`}
+              style={styles.preview}
             />
-            <Field
-              label="Original photo taken on"
-              placeholder="YYYY-MM-DD"
-              value={pending.takenOn}
-              keyboardType="numbers-and-punctuation"
-              onChangeText={(v) => {
-                setPending({ ...pending, takenOn: v });
-                setDateConfirmed(false);
-              }}
-              help="Use the capture date, not the download or editing date."
+            <View style={{ gap: 8 }}>
+              <Title>{photoName(editing)}</Title>
+              <Badge tone={statusTone(editing)}>{statusLabel(editing)}</Badge>
+              <Text style={s.small}>
+                Taken {editing.takenOn} · 600 × 600 JPEG ·{" "}
+                {Math.ceil(editing.bytes / 1000)} kB
+              </Text>
+            </View>
+            {!photoRecent(editing) && (
+              <Notice title="Add a recent photo">
+                Your entry needs a photo taken within the last six months. Take
+                or choose a new photo from your library screen.
+              </Notice>
+            )}
+            <FormSection
+              title="Your checks"
+              description="These are your own checks, not government approval."
+            >
+              <Toggle
+                title="Composition reviewed"
+                detail="Check head size, eye position, lighting, expression and background against official examples."
+                value={editing.composition}
+                onChange={(value) =>
+                  changePhoto(editing, { composition: value })
+                }
+              />
+              <Toggle
+                title="Not used in a previous DV entry"
+                value={editing.notReused}
+                onChange={(value) => changePhoto(editing, { notReused: value })}
+              />
+              <LinkRow title="Review photo examples" url={official.photos} />
+            </FormSection>
+            <Select
+              label="Assigned to"
+              value={assignedLabel(editing)}
+              options={options}
+              onChange={(value) => assign(editing, value)}
             />
-            <Toggle
-              title="I confirm the original capture date"
-              value={dateConfirmed}
-              onChange={setDateConfirmed}
+            <Button
+              secondary
+              title="Export JPEG"
+              icon="share-outline"
+              onPress={() => void share(editing)}
             />
-            <Toggle
-              title="I reviewed the official composition rules"
-              value={pending.composition}
-              onChange={(v) => setPending({ ...pending, composition: v })}
+            <Button
+              danger
+              title="Delete photo"
+              icon="trash-outline"
+              onPress={() => remove(editing)}
             />
-            <Toggle
-              title="Not used in a previous DV entry"
-              value={pending.notReused}
-              onChange={(v) => setPending({ ...pending, notReused: v })}
-            />
-            <LinkRow title="Review photo examples" url={official.photos} />
-            <Button title="Save photo" icon="checkmark" onPress={save} />
           </Stack>
         )}
       </Sheet>
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  hero: { backgroundColor: C.white, borderColor: C.blueSoft },
+  heroTop: { flexDirection: "row", gap: 14, alignItems: "center" },
+  cameraIcon: {
+    width: 58,
+    height: 58,
+    borderRadius: 19,
+    backgroundColor: C.blueSoft,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  photoRow: { flexDirection: "row", gap: 16, alignItems: "center" },
+  thumbnail: { width: 82, height: 82, borderRadius: 14, backgroundColor: C.bg },
+  preview: {
+    width: "100%",
+    maxWidth: 360,
+    aspectRatio: 1,
+    alignSelf: "center",
+    borderRadius: 20,
+    backgroundColor: C.bg,
+  },
+  empty: { flexDirection: "row", gap: 14, paddingVertical: 18 },
+  success: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    borderRadius: 14,
+    backgroundColor: C.successBg,
+    padding: 14,
+  },
+});

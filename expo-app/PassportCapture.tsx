@@ -3,7 +3,9 @@ import { Alert, Linking, Text, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import PassportReader from "../modules/passport-reader";
-import { PassportReading, parsePassport } from "./passport";
+import { PassportReading, parsePassport, passportFieldCount } from "./passport";
+import { normalizeCountry } from "./countryNormalization";
+import countries from "./countries.json";
 import {
   displayBirthDate,
   normalizeBirthDate,
@@ -16,6 +18,7 @@ import {
   Button,
   C,
   Field,
+  FormSection,
   Icon,
   Notice,
   Row,
@@ -23,7 +26,9 @@ import {
   Sheet,
   Stack,
   Title,
+  feedback,
   s,
+  useFormNavigation,
 } from "./ui";
 
 const scanDirectory = `${FileSystem.cacheDirectory}passport-import/`;
@@ -34,13 +39,21 @@ export async function clearPassportCache() {
 export function PassportCapture({
   onUse,
   currentName,
+  onManual,
 }: {
   onUse: (reading: PassportReading) => void;
   currentName: string;
+  onManual?: () => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [reading, setReading] = useState<PassportReading | null>(null);
-  const [error, setError] = useState("");
+  const [rawCountries, setRawCountries] = useState({
+    issuer: "",
+    nationality: "",
+  });
+  const [editing, setEditing] = useState(false);
+  const [showErrors, setShowErrors] = useState(false);
+  const form = useFormNavigation();
   const alive = useRef(true);
   const inFlight = useRef(false);
   useEffect(() => {
@@ -49,16 +62,70 @@ export function PassportCapture({
       alive.current = false;
     };
   }, []);
+  const close = () => {
+    setReading(null);
+    setRawCountries({ issuer: "", nationality: "" });
+    setEditing(false);
+    setShowErrors(false);
+  };
   const set = (key: keyof PassportReading, value: string) => {
     setReading((r) => r && { ...r, [key]: value });
-    setError("");
+  };
+  const errors: Record<string, string | undefined> = reading
+    ? {
+        "scan.first":
+          !reading.first.trim() && !reading.last.trim()
+            ? "Enter at least one name as shown on your passport."
+            : undefined,
+        "scan.dob": !validPastDate(normalizeBirthDate(reading.dob))
+          ? "Enter a valid birth date using MM/DD/YYYY."
+          : undefined,
+        "scan.number": !reading.number.trim()
+          ? "Enter the passport number shown on the identity page."
+          : undefined,
+        "scan.expires": !parseDate(normalizeBirthDate(reading.expires))
+          ? "Enter a valid expiry date using MM/DD/YYYY."
+          : undefined,
+      }
+    : {};
+  const validate = () => {
+    setShowErrors(true);
+    if (Object.values(errors).some(Boolean)) {
+      setEditing(true);
+      form.focusFirst(errors);
+      feedback("error");
+      return false;
+    }
+    return true;
+  };
+  const confirm = () => {
+    if (!reading || !validate()) return;
+    const confirmed = {
+      ...reading,
+      dob: normalizeBirthDate(reading.dob),
+      expires: normalizeBirthDate(reading.expires),
+    };
+    Alert.alert(
+      "Use these passport details?",
+      `This will replace ${currentName}’s name, birth date and recognized passport details. Birthplace, contact details and family information stay as you entered them.`,
+      [
+        { text: "Keep reviewing", style: "cancel" },
+        {
+          text: "Replace details",
+          onPress: () => {
+            onUse(confirmed);
+            close();
+          },
+        },
+      ],
+    );
   };
   const pick = async (camera: boolean) => {
     if (inFlight.current) return;
     if (!PassportReader) {
       Alert.alert(
-        "Passport scanning needs the iOS development build",
-        "Expo Go can run the form but does not include the on-device passport scanner. Open the DV Lottery Tracker development app to scan, or enter your details manually here.",
+        "Open the iOS app to scan",
+        "Passport scanning is available in the DV Lottery Tracker TestFlight or development app. You can still enter your details manually in Expo Go.",
       );
       return;
     }
@@ -109,8 +176,18 @@ export function PassportCapture({
       const lines = await PassportReader.recognize(scanURI);
       const extracted = parsePassport(lines);
       if (alive.current) {
-        setError("");
-        setReading(extracted);
+        setRawCountries({
+          issuer: extracted.issuer,
+          nationality: extracted.nationality,
+        });
+        setReading({
+          ...extracted,
+          issuer: normalizeCountry(extracted.issuer) ?? "",
+          nationality: normalizeCountry(extracted.nationality) ?? "",
+        });
+        setEditing(false);
+        setShowErrors(false);
+        feedback("success");
       }
     } catch (e) {
       if (alive.current)
@@ -141,24 +218,37 @@ export function PassportCapture({
     <>
       <View
         style={{
-          backgroundColor: "#EBF1F9",
-          borderRadius: 22,
+          backgroundColor: C.blueSoft,
+          borderRadius: 24,
           padding: 22,
-          gap: 14,
+          gap: 16,
         }}
       >
         <Row>
-          <Icon name="scan-outline" size={28} />
-          <Badge>Optional shortcut</Badge>
+          <View
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: 15,
+              backgroundColor: C.white,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Icon name="scan-outline" size={27} color={C.blue} />
+          </View>
+          <Badge>SAVE TIME</Badge>
         </Row>
-        <Title>Start with your passport</Title>
-        <Body>
-          Photograph the identity page or choose a photo to fill in your
-          personal and passport details.
-        </Body>
+        <View style={{ gap: 8 }}>
+          <Title>Scan your passport</Title>
+          <Body>
+            Let your passport fill in your name, birth date and passport
+            details.
+          </Body>
+        </View>
         <Button
           testID="passport-camera"
-          title="Take passport photo"
+          title="Scan passport"
           icon="camera-outline"
           busy={busy}
           onPress={() => void pick(true)}
@@ -172,140 +262,242 @@ export function PassportCapture({
           onPress={() => void pick(false)}
         />
         <Text style={s.small}>
-          Keep the whole page and both machine-readable lines in view. Read on
-          this device, then review before saving. The app removes its temporary
-          photo after reading.
+          Include the full identity page and both lines at the bottom. Read on
+          this device; the temporary image is removed after scanning.
         </Text>
-        {!PassportReader && (
-          <Text style={s.small}>
-            Scanner available in the DV Lottery Tracker iOS development build. Manual
-            entry works in Expo Go.
+        {onManual ? (
+          <Button
+            variant="tertiary"
+            title="Enter manually instead"
+            onPress={onManual}
+            disabled={busy}
+          />
+        ) : (
+          <Text style={[s.small, { color: C.blue }]}>
+            Or enter your details below.
           </Text>
         )}
-        <Text style={[s.small, { color: C.blue }]}>
-          Prefer to type? Complete the fields below.
-        </Text>
       </View>
       <Sheet
         visible={!!reading}
-        title="Review passport details"
-        onClose={() => {
-          setReading(null);
-          setError("");
-        }}
+        title={editing ? "Edit passport details" : "Review your passport"}
+        onClose={close}
+        form={form}
+        footer={
+          reading ? (
+            <Button
+              testID={editing ? "passport-review-done" : "passport-use"}
+              title={editing ? "Review changes" : "Looks correct"}
+              icon="checkmark-outline"
+              onPress={
+                editing
+                  ? () => {
+                      if (validate()) {
+                        setReading(
+                          (r) =>
+                            r && {
+                              ...r,
+                              dob: normalizeBirthDate(r.dob),
+                              expires: normalizeBirthDate(r.expires),
+                            },
+                        );
+                        setEditing(false);
+                        setShowErrors(false);
+                      }
+                    }
+                  : confirm
+              }
+            />
+          ) : undefined
+        }
       >
         {reading && (
-          <Stack>
-            <Body>
-              Check the details below. They will replace {currentName}’s
-              personal and passport details when you tap Use these details.
-            </Body>
-            <Notice title="Check names and birth date">
-              Confirm spelling, the first / middle name split, and the full
-              birth year against your passport.
-            </Notice>
-            <Field
-              testID="passport-review-first"
-              label="First / given name"
-              value={reading.first}
-              onChangeText={(v) => set("first", v)}
-            />
-            <Field
-              testID="passport-review-middle"
-              label="Middle name (optional)"
-              value={reading.middle}
-              onChangeText={(v) => set("middle", v)}
-            />
-            <Field
-              testID="passport-review-last"
-              label="Last / family name"
-              value={reading.last}
-              onChangeText={(v) => set("last", v)}
-            />
-            <Field
-              label="Date of birth (MM/DD/YYYY)"
-              value={displayBirthDate(reading.dob)}
-              onChangeText={(v) => set("dob", v)}
-              keyboardType="numbers-and-punctuation"
-              maxLength={10}
-            />
-            <Select
-              label="Sex (official form)"
-              value={reading.sex}
-              options={["Male", "Female"]}
-              onChange={(v) => set("sex", v)}
-            />
-            <Field
-              label="Passport number"
-              value={reading.number}
-              onChangeText={(v) => set("number", v.toUpperCase())}
-              autoCapitalize="characters"
-            />
-            <Field
-              label="Issuing country / authority code"
-              help="As printed in the passport’s machine-readable lines, e.g. KGZ."
-              value={reading.issuer}
-              onChangeText={(v) => set("issuer", v.toUpperCase())}
-              autoCapitalize="characters"
-              maxLength={3}
-            />
-            <Field
-              label="Nationality code"
-              help="This does not determine your country of birth or DV eligibility."
-              value={reading.nationality}
-              onChangeText={(v) => set("nationality", v.toUpperCase())}
-              autoCapitalize="characters"
-              maxLength={3}
-            />
-            <Field
-              label="Passport expiry (MM/DD/YYYY)"
-              value={displayBirthDate(reading.expires)}
-              onChangeText={(v) => set("expires", v)}
-              keyboardType="numbers-and-punctuation"
-              maxLength={10}
-            />
-            <Body muted>
-              Birthplace, education, contact details and family still need your
-              input. This passport image cannot replace your DV portrait photo.
-            </Body>
-            {!!error && <Notice title="Check these details">{error}</Notice>}
-            <Button
-              testID="passport-use"
-              title="Use these details"
-              icon="checkmark-outline"
-              onPress={() => {
-                if (
-                  (!reading.first.trim() && !reading.last.trim()) ||
-                  !validPastDate(normalizeBirthDate(reading.dob)) ||
-                  !reading.number.trim() ||
-                  !/^[A-Z]{1,3}$/.test(reading.issuer) ||
-                  !/^[A-Z]{1,3}$/.test(reading.nationality) ||
-                  !parseDate(normalizeBirthDate(reading.expires))
-                ) {
-                  setError(
-                    "Confirm at least one name, a valid birth date, passport number, country codes and expiry date.",
-                  );
-                  return;
-                }
-                onUse({
-                  ...reading,
-                  dob: normalizeBirthDate(reading.dob),
-                  expires: normalizeBirthDate(reading.expires),
-                });
-                setReading(null);
-              }}
-            />
-            <Button
-              secondary
-              title="Discard scan"
-              onPress={() => {
-                setReading(null);
-                setError("");
-              }}
-            />
+          <Stack gap={22}>
+            {!editing ? (
+              <>
+                <View
+                  style={{
+                    backgroundColor: C.successBg,
+                    padding: 20,
+                    borderRadius: 20,
+                    gap: 8,
+                  }}
+                >
+                  <Row>
+                    <Icon name="checkmark-circle" color={C.green} size={30} />
+                    <View style={{ flex: 1, gap: 4 }}>
+                      <Text style={[s.fieldLabel, { color: C.green }]}>
+                        Passport recognized
+                      </Text>
+                      <Text style={s.small}>
+                        {passportFieldCount(reading)} fields ready to fill
+                      </Text>
+                    </View>
+                  </Row>
+                </View>
+                <View
+                  style={{
+                    backgroundColor: C.white,
+                    borderRadius: 22,
+                    padding: 22,
+                    gap: 20,
+                  }}
+                >
+                  <View style={{ gap: 6 }}>
+                    <Text style={[s.title, { fontSize: 25 }]}>
+                      {[reading.first, reading.middle, reading.last]
+                        .filter(Boolean)
+                        .join(" ")}
+                    </Text>
+                    <Text style={s.body}>
+                      {reading.sex || "Sex not read"} ·{" "}
+                      {displayBirthDate(reading.dob)}
+                    </Text>
+                  </View>
+                  <Fact
+                    label="Nationality"
+                    value={reading.nationality || "Confirm nationality"}
+                  />
+                  <Fact
+                    label="Issuing country"
+                    value={reading.issuer || "Confirm issuing country"}
+                  />
+                  <Fact label="Passport number" value={reading.number} />
+                  <Fact
+                    label="Expires"
+                    value={displayBirthDate(reading.expires)}
+                  />
+                </View>
+                <Text style={s.small}>
+                  Check the spelling, first and middle name split, and full
+                  birth year against your passport.
+                </Text>
+                <Button
+                  testID="passport-edit"
+                  variant="secondary"
+                  title="Edit details"
+                  icon="create-outline"
+                  onPress={() => setEditing(true)}
+                />
+              </>
+            ) : (
+              <>
+                <FormSection title="Name on your passport">
+                  <Field
+                    fieldId="scan.first"
+                    testID="passport-review-first"
+                    label="First / given name"
+                    value={reading.first}
+                    onChangeText={(v) => set("first", v)}
+                    textContentType="givenName"
+                    autoCapitalize="words"
+                    error={showErrors ? errors["scan.first"] : undefined}
+                  />
+                  <Field
+                    fieldId="scan.middle"
+                    testID="passport-review-middle"
+                    label="Middle name (optional)"
+                    value={reading.middle}
+                    onChangeText={(v) => set("middle", v)}
+                    textContentType="middleName"
+                    autoCapitalize="words"
+                  />
+                  <Field
+                    fieldId="scan.last"
+                    testID="passport-review-last"
+                    label="Last / family name"
+                    value={reading.last}
+                    onChangeText={(v) => set("last", v)}
+                    textContentType="familyName"
+                    autoCapitalize="words"
+                  />
+                </FormSection>
+                <FormSection title="Birth information">
+                  <Field
+                    fieldId="scan.dob"
+                    label="Date of birth (MM/DD/YYYY)"
+                    value={displayBirthDate(reading.dob)}
+                    onChangeText={(v) => set("dob", v)}
+                    keyboardType="numbers-and-punctuation"
+                    maxLength={10}
+                    error={showErrors ? errors["scan.dob"] : undefined}
+                  />
+                  <Select
+                    fieldId="scan.sex"
+                    label="Sex (official form)"
+                    value={reading.sex}
+                    options={["Male", "Female"]}
+                    onChange={(v) => set("sex", v)}
+                  />
+                </FormSection>
+                <FormSection title="Passport details">
+                  <Field
+                    fieldId="scan.number"
+                    label="Passport number"
+                    value={reading.number}
+                    onChangeText={(v) => set("number", v.toUpperCase())}
+                    autoCapitalize="characters"
+                    error={showErrors ? errors["scan.number"] : undefined}
+                  />
+                  <Select
+                    fieldId="scan.issuer"
+                    label="Issuing country"
+                    value={reading.issuer}
+                    options={countries}
+                    onChange={(v) => set("issuer", v)}
+                    searchable
+                  />
+                  <Select
+                    fieldId="scan.nationality"
+                    label="Nationality"
+                    value={reading.nationality}
+                    options={countries}
+                    onChange={(v) => set("nationality", v)}
+                    searchable
+                  />
+                  <Field
+                    fieldId="scan.expires"
+                    label="Passport expiry (MM/DD/YYYY)"
+                    value={displayBirthDate(reading.expires)}
+                    onChangeText={(v) => set("expires", v)}
+                    keyboardType="numbers-and-punctuation"
+                    maxLength={10}
+                    error={showErrors ? errors["scan.expires"] : undefined}
+                  />
+                </FormSection>
+              </>
+            )}
+            {(!reading.issuer || !reading.nationality) && (
+              <Notice title="Confirm the country details">
+                {!reading.issuer
+                  ? `Issuing country${rawCountries.issuer ? ` (${rawCountries.issuer})` : ""} could not be matched. `
+                  : ""}
+                {!reading.nationality
+                  ? `Nationality${rawCountries.nationality ? ` (${rawCountries.nationality})` : ""} could not be matched. `
+                  : ""}
+                Choose Edit details to confirm. If the passport uses a special
+                authority or stateless code, leave that country unselected.
+                Existing country details will be kept.
+              </Notice>
+            )}
+            <Text style={s.small}>
+              Country of birth, education, contact and family details still need
+              your input. A passport scan does not replace your DV portrait
+              photo.
+            </Text>
+            <Button variant="tertiary" title="Discard scan" onPress={close} />
           </Stack>
         )}
       </Sheet>
     </>
+  );
+}
+
+function Fact({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={{ gap: 4 }}>
+      <Text style={s.small}>{label}</Text>
+      <Text style={s.fieldLabel}>{value}</Text>
+    </View>
   );
 }

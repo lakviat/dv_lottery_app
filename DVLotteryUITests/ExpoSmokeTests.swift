@@ -13,43 +13,44 @@ final class ExpoSmokeTests: XCTestCase {
         if app.buttons["Close"].exists { app.buttons["Close"].tap() }
         let home = app.descendants(matching: .any).matching(identifier: "tab-home").firstMatch
         XCTAssertTrue(home.waitForExistence(timeout: 20), app.debugDescription)
+        dismissKeyboardBeforeNavigation(app)
         home.tap()
         for _ in 0..<3 { app.swipeDown() }
-        XCTAssertTrue(app.staticTexts["Your preparation"].exists)
-        XCTAssertFalse(app.staticTexts["Big possibilities.\nSmall, clear steps."].exists)
+        XCTAssertTrue(app.buttons["home-next-action"].exists)
+        XCTAssertFalse(app.staticTexts.matching(identifier: "Big possibilities.\nSmall, clear steps.").firstMatch.exists)
         screenshot("Alerts-Minimal-Home")
         let alerts = app.buttons["registration-alerts"]
         scrollTo(alerts, in: app)
         alerts.tap()
-        XCTAssertTrue(app.staticTexts["Registration alerts"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts.matching(identifier: "Registration alerts").firstMatch.waitForExistence(timeout: 5))
         screenshot("Alerts-Preferences")
         let reminder = app.buttons["registration-reminder-toggle"]
         scrollTo(reminder, in: app)
-        if app.staticTexts["Weekly reminder is on"].exists { reminder.tap() }
-        XCTAssertTrue(app.staticTexts["Weekly reminder is off"].waitForExistence(timeout: 5))
+        if app.staticTexts.matching(identifier: "Weekly reminder is on").firstMatch.exists { reminder.tap() }
+        XCTAssertTrue(app.staticTexts.matching(identifier: "Weekly reminder is off").firstMatch.waitForExistence(timeout: 5))
         reminder.tap()
         let system = XCUIApplication(bundleIdentifier: "com.apple.springboard")
         if system.buttons["Allow"].waitForExistence(timeout: 3) { system.buttons["Allow"].tap() }
         if app.alerts.buttons["Allow"].waitForExistence(timeout: 1) { app.alerts.buttons["Allow"].tap() }
-        if (ProcessInfo.processInfo.environment["DV_UI_BUNDLE_ID"] ?? "host.exp.Exponent") == "host.exp.Exponent" && app.staticTexts["Reminders need the iOS development app"].waitForExistence(timeout: 2) {
+        if (ProcessInfo.processInfo.environment["DV_UI_BUNDLE_ID"] ?? "host.exp.Exponent") == "host.exp.Exponent" && app.staticTexts.matching(identifier: "Reminders need the iOS development app").firstMatch.waitForExistence(timeout: 2) {
             screenshot("Alerts-Expo-Go-Fallback")
         } else {
-            XCTAssertTrue(app.staticTexts["Weekly reminder is on"].waitForExistence(timeout: 5), app.debugDescription)
+            XCTAssertTrue(app.staticTexts.matching(identifier: "Weekly reminder is on").firstMatch.waitForExistence(timeout: 5), app.debugDescription)
             screenshot("Alerts-Reminder-Enabled")
             reminder.tap()
-            XCTAssertTrue(app.staticTexts["Weekly reminder is off"].waitForExistence(timeout: 5))
+            XCTAssertTrue(app.staticTexts.matching(identifier: "Weekly reminder is off").firstMatch.waitForExistence(timeout: 5))
         }
         let request = app.buttons["registration-email-submit"]
         scrollTo(request, in: app)
         request.tap()
-        XCTAssertTrue(app.staticTexts["Enter a valid email address."].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts.matching(identifier: "Enter a valid email address.").firstMatch.waitForExistence(timeout: 5))
         let email = app.textFields["Email for opening alert"]
         scrollTo(email, in: app)
         email.tap()
         email.typeText("test@example.com\n")
         scrollTo(request, in: app)
         request.tap()
-        XCTAssertTrue(app.staticTexts["Please agree to the email alert before sending."].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts.matching(identifier: "Agree to receive this opening email before sending.").firstMatch.waitForExistence(timeout: 5))
         screenshot("Alerts-Consent-Required")
         app.buttons["Close"].tap()
         XCTAssertTrue(home.waitForExistence(timeout: 5))
@@ -61,10 +62,11 @@ final class ExpoSmokeTests: XCTestCase {
         try XCTSkipUnless(ProcessInfo.processInfo.environment["DV_PASSPORT_RELOAD_TEST"] == "1", "Requires the fictional imported draft and a complete reload.")
         let app = XCUIApplication(bundleIdentifier: "com.dvlottery.expo")
         acceptOpenAppPrompt()
-        app.activate()
+        startIsolated(app)
         dismissDevelopmentMenu(app)
         let apply = app.descendants(matching: .any).matching(identifier: "tab-apply").firstMatch
         XCTAssertTrue(apply.waitForExistence(timeout: 15), app.debugDescription)
+        dismissKeyboardBeforeNavigation(app)
         apply.tap()
         let personal = app.buttons["details-personal"]
         scrollTo(personal, in: app)
@@ -88,11 +90,14 @@ final class ExpoSmokeTests: XCTestCase {
         if app.buttons["tour-skip"].waitForExistence(timeout: 2) { app.buttons["tour-skip"].tap() }
         let apply = app.descendants(matching: .any).matching(identifier: "tab-apply").firstMatch
         XCTAssertTrue(apply.waitForExistence(timeout: 20), app.debugDescription)
+        dismissKeyboardBeforeNavigation(app)
         apply.tap()
         for _ in 0..<8 { app.swipeDown() }
-        app.buttons["Step 1: Your details"].tap()
+        let details = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Step 1: Your details")).firstMatch
+        scrollTo(details, in: app)
+        details.tap()
         app.buttons["passport-upload"].tap()
-        XCTAssertTrue(app.alerts["Passport scanning needs the iOS development build"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.alerts["Open the iOS app to scan"].waitForExistence(timeout: 5))
         app.alerts.buttons["OK"].tap()
         XCTAssertTrue(app.buttons["passport-upload"].exists)
     }
@@ -104,17 +109,21 @@ final class ExpoSmokeTests: XCTestCase {
         let app = XCUIApplication(bundleIdentifier: "com.dvlottery.expo")
         let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
         if springboard.buttons["Open"].waitForExistence(timeout: 3) { springboard.buttons["Open"].tap() }
-        app.activate()
+        startIsolated(app)
         for _ in 0..<3 {
             if springboard.buttons["Open"].waitForExistence(timeout: 1) { springboard.buttons["Open"].tap() }
             if app.buttons["Open"].exists { app.buttons["Open"].tap() }
         }
         dismissDevelopmentMenu(app)
         if app.buttons["tour-skip"].waitForExistence(timeout: 3) { app.buttons["tour-skip"].tap() }
-        if app.staticTexts["Review passport details"].exists { app.buttons["Close"].tap() }
+        if app.staticTexts.matching(identifier: "Review your passport").firstMatch.exists { app.buttons["Close"].tap() }
         let apply = app.descendants(matching: .any).matching(identifier: "tab-apply").firstMatch
         XCTAssertTrue(apply.waitForExistence(timeout: 30), app.debugDescription)
+        dismissKeyboardBeforeNavigation(app)
         apply.tap()
+        openPreparationSection("personal", in: app)
+        let unselectedEducation = app.buttons["Highest level of education: Choose"]
+        XCTAssertTrue(unselectedEducation.exists, "Run this missing-education regression on a dedicated draft with education unset; the test never resets user data.")
         scrollTo(app.buttons["passport-upload"], in: app)
         XCTAssertTrue(app.buttons["passport-upload"].waitForExistence(timeout: 5))
         screenshot("Passport-Start")
@@ -126,14 +135,27 @@ final class ExpoSmokeTests: XCTestCase {
         let photo = app.images.matching(NSPredicate(format: "label BEGINSWITH 'Photo' OR label BEGINSWITH 'Screenshot'")).firstMatch
         XCTAssertTrue(photo.waitForExistence(timeout: 5), app.debugDescription)
         photo.tap()
-        XCTAssertTrue(app.staticTexts["Review passport details"].waitForExistence(timeout: 20), app.debugDescription)
+        XCTAssertTrue(app.staticTexts.matching(identifier: "Review your passport").firstMatch.waitForExistence(timeout: 20), app.debugDescription)
+        XCTAssertTrue(app.staticTexts.matching(identifier: "Passport recognized").firstMatch.exists)
+        XCTAssertTrue(app.staticTexts.matching(identifier: "ANNA MARIA ERIKSSON").firstMatch.exists)
+        XCTAssertFalse(app.textFields["passport-review-first"].exists, "Recognition should open a compact review, not an edit form.")
         screenshot("Passport-Review")
+        let edit = app.buttons["passport-edit"]
+        scrollTo(edit, in: app)
+        edit.tap()
+        XCTAssertTrue(app.staticTexts.matching(identifier: "Edit passport details").firstMatch.waitForExistence(timeout: 5))
         XCTAssertEqual(app.textFields["passport-review-first"].value as? String, "ANNA")
         XCTAssertEqual(app.textFields["passport-review-middle"].value as? String, "MARIA")
         XCTAssertEqual(app.textFields["passport-review-last"].value as? String, "ERIKSSON")
+        let reviewDone = app.buttons["passport-review-done"]
+        XCTAssertTrue(reviewDone.isHittable, "The review action should remain reachable while editing.")
+        reviewDone.tap()
+        XCTAssertTrue(app.staticTexts.matching(identifier: "Review your passport").firstMatch.waitForExistence(timeout: 5))
         let use = app.buttons["passport-use"]
-        scrollTo(use, in: app)
+        XCTAssertTrue(use.isHittable)
         use.tap()
+        XCTAssertTrue(app.alerts["Use these passport details?"].waitForExistence(timeout: 5))
+        app.alerts.buttons["Replace details"].tap()
         XCTAssertTrue(app.buttons["passport-upload"].waitForExistence(timeout: 5))
 
         let birth = app.textFields["Date of birth"]
@@ -145,24 +167,387 @@ final class ExpoSmokeTests: XCTestCase {
         city.tap()
         let existingCity = city.value as? String ?? ""
         city.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: existingCity.count) + "Testville\n")
-        let country = app.buttons["Country of birth: Choose"]
+        let country = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Country of birth:")).firstMatch
         scrollTo(country, in: app)
         country.tap()
         app.textFields["Search"].typeText("Canada")
-        app.buttons["Canada"].tap()
-        let education = app.buttons["Highest level of education: Choose"]
-        scrollTo(education, in: app)
-        education.tap()
-        app.buttons["High school degree"].tap()
+        let canada = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Canada")).firstMatch
+        XCTAssertTrue(canada.waitForExistence(timeout: 5))
+        canada.tap()
+        // Continue must take the user straight to the missing education field.
+        // There is deliberately no scroll helper between Continue and these assertions.
         let next = app.buttons["apply-continue"]
-        scrollTo(next, in: app)
+        XCTAssertTrue(next.isHittable)
+        next.tap()
+        let education = app.buttons["Highest level of education: Choose"]
+        let educationError = app.staticTexts.matching(identifier: "Please select your highest level of education.").firstMatch
+        XCTAssertTrue(educationError.waitForExistence(timeout: 5))
+        XCTAssertTrue(waitUntilHittable(education), app.debugDescription)
+        XCTAssertTrue(waitUntilInlineVisible(educationError, in: app), "Inline explanation must be visible without searching the form.")
+        screenshot("Passport-Missing-Education-Focused")
+        education.tap()
+        let educationChoice = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "High school degree")).firstMatch
+        XCTAssertTrue(educationChoice.waitForExistence(timeout: 5))
+        educationChoice.tap()
+        XCTAssertFalse(educationError.exists, "Corrected errors should clear immediately.")
         screenshot("Passport-Personal-Ready")
         next.tap()
         let email = app.textFields["Email address"]
         scrollTo(email, in: app)
         XCTAssertTrue(email.isHittable, app.debugDescription)
-        XCTAssertFalse(app.staticTexts["A few things to complete"].exists)
+        XCTAssertFalse(app.staticTexts.matching(identifier: "A few things to complete").firstMatch.exists)
         screenshot("Passport-Continue-Contact")
+    }
+
+    /// Full consumer flow with fictional records only. Existing entries and contact values are retained.
+    @MainActor func testPremiumHomeFormsAndResume() throws {
+        continueAfterFailure = false
+        try XCTSkipUnless(ProcessInfo.processInfo.environment["DV_PREMIUM_UI_TESTS"] == "1", "Requires the updated iOS app installed in a simulator.")
+        let app = XCUIApplication(bundleIdentifier: ProcessInfo.processInfo.environment["DV_UI_BUNDLE_ID"] ?? "com.dvlottery.expo")
+        acceptOpenAppPrompt()
+        startIsolated(app)
+        dismissDevelopmentMenu(app)
+        if app.buttons["tour-skip"].waitForExistence(timeout: 2) { app.buttons["tour-skip"].tap() }
+        if app.buttons["Close"].exists { app.buttons["Close"].tap() }
+        let home = app.descendants(matching: .any).matching(identifier: "tab-home").firstMatch
+        XCTAssertTrue(home.waitForExistence(timeout: 20), app.debugDescription)
+        dismissKeyboardBeforeNavigation(app)
+        home.tap()
+        XCTAssertTrue(app.buttons["home-next-action"].waitForExistence(timeout: 5))
+        screenshot("Premium-Home")
+
+        dismissKeyboardBeforeNavigation(app)
+        app.descendants(matching: .any).matching(identifier: "tab-apply").firstMatch.tap()
+        openPreparationSection("contact", in: app)
+        let labels = ["Email address", "Phone number (optional)", "In care of (optional)", "Address line 1", "Address line 2 (optional)"]
+        let originals = Dictionary(uniqueKeysWithValues: labels.map { ($0, app.textFields[$0].value as? String ?? "") })
+        // Restore only fields touched by this test. Never reset the app, draft, photos or existing entries.
+        defer {
+            if app.buttons["Close"].exists { app.buttons["Close"].tap() }
+            dismissKeyboardBeforeNavigation(app)
+            app.descendants(matching: .any).matching(identifier: "tab-apply").firstMatch.tap()
+            openPreparationSection("contact", in: app)
+            for label in labels { replaceText(app.textFields[label], with: originals[label] ?? "", in: app) }
+            dismissKeyboardBeforeNavigation(app)
+            home.tap()
+        }
+        let email = app.textFields["Email address"]
+        replaceText(email, with: "", in: app)
+        let next = app.buttons["apply-continue"]
+        XCTAssertTrue(next.isHittable, "The primary action must stay above the keyboard.")
+        next.tap()
+        let emailError = app.staticTexts.matching(identifier: "Enter a valid email address.").firstMatch
+        XCTAssertTrue(emailError.waitForExistence(timeout: 5))
+        XCTAssertTrue(waitUntilHittable(email), app.debugDescription)
+        XCTAssertTrue(waitUntilInlineVisible(emailError, in: app), "Validation must reveal the field and message without a manual scroll.")
+        XCTAssertTrue(app.keyboards.firstMatch.exists, "A text-field validation error should focus the keyboard.")
+        screenshot("Premium-Contact-Validation")
+
+        let token = String(UUID().uuidString.replacingOccurrences(of: "-", with: "").prefix(12)).uppercased()
+        let fixtureEmail = "uitest.\(token.lowercased())@example.com"
+        email.typeText(fixtureEmail + "\n")
+        XCTAssertFalse(emailError.exists)
+        let phone = app.textFields["Phone number (optional)"]
+        let phoneBefore = originals["Phone number (optional)"] ?? ""
+        app.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: phoneBefore.count) + "2025550199")
+        XCTAssertEqual(phone.value as? String, "2025550199", "Email Next should move input to the phone field.")
+        let keyboardNext = app.buttons["Next field"]
+        XCTAssertTrue(keyboardNext.isHittable, "The phone keypad needs a native Next accessory.")
+        keyboardNext.tap()
+        let careOf = app.textFields["In care of (optional)"]
+        app.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: (originals["In care of (optional)"] ?? "").count) + "UI Fixture")
+        XCTAssertEqual(careOf.value as? String, "UI Fixture")
+        let address = app.textFields["Address line 1"]
+        replaceText(address, with: "123 Example Street", in: app)
+        address.typeText("\n")
+        app.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: (originals["Address line 2 (optional)"] ?? "").count) + "Unit 4")
+        XCTAssertEqual(app.textFields["Address line 2 (optional)"].value as? String, "Unit 4", "Address Next should move to address line 2.")
+        screenshot("Premium-Contact-Keyboard")
+        dismissKeyboardBeforeNavigation(app)
+        home.tap()
+        app.terminate()
+        app.launch()
+        XCTAssertTrue(home.waitForExistence(timeout: 20))
+        XCTAssertFalse(app.buttons["tour-skip"].exists, "The dismissed tour should stay dismissed after relaunch.")
+        dismissKeyboardBeforeNavigation(app)
+        app.descendants(matching: .any).matching(identifier: "tab-apply").firstMatch.tap()
+        openPreparationSection("contact", in: app)
+        XCTAssertEqual(app.textFields["Email address"].value as? String, fixtureEmail)
+        XCTAssertEqual(app.textFields["Address line 1"].value as? String, "123 Example Street")
+        screenshot("Premium-Draft-Resumed")
+
+        dismissKeyboardBeforeNavigation(app)
+        app.descendants(matching: .any).matching(identifier: "tab-photos").firstMatch.tap()
+        XCTAssertTrue(app.staticTexts.matching(identifier: "A photo for each person").firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Take a photo"].isHittable)
+        XCTAssertTrue(app.buttons["Choose from Photos"].isHittable)
+        screenshot("Premium-Photos")
+        dismissKeyboardBeforeNavigation(app)
+        app.descendants(matching: .any).matching(identifier: "tab-my-entries").firstMatch.tap()
+        XCTAssertTrue(app.buttons["add-entry"].waitForExistence(timeout: 5))
+        screenshot(app.staticTexts.matching(identifier: "No entries yet").firstMatch.exists ? "Premium-Entries-Empty" : "Premium-Entries-Existing")
+        app.buttons["add-entry"].tap()
+        let save = app.buttons["Save entry"]
+        XCTAssertTrue(save.waitForExistence(timeout: 5))
+        save.tap()
+        let fullName = app.textFields["Applicant full name"]
+        XCTAssertTrue(app.staticTexts.matching(identifier: "Enter the applicant’s full name.").firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(waitUntilHittable(fullName))
+        screenshot("Premium-Entry-Validation")
+        let fixtureName = "UI Fixture \(token)"
+        let year = String(Calendar.current.component(.year, from: Date()) + 1)
+        replaceText(fullName, with: fixtureName, in: app)
+        replaceText(app.textFields["Last / family name for status check"], with: "Fixture", in: app)
+        replaceText(app.textFields["Birth year"], with: "1990", in: app)
+        replaceText(app.textFields["DV program year"], with: year, in: app)
+        replaceText(app.textFields["Confirmation number"], with: year + token, in: app)
+        save.tap()
+        let attestation = app.switches["This entry was submitted on the official portal"]
+        XCTAssertTrue(waitUntilHittable(attestation), "The missing attestation must be revealed automatically.")
+        XCTAssertTrue(waitUntilInlineVisible(app.staticTexts.matching(identifier: "Confirm this entry has already been submitted on the official portal.").firstMatch, in: app))
+        attestation.tap()
+        save.tap()
+        XCTAssertTrue(app.buttons["add-entry"].waitForExistence(timeout: 5))
+        let fixtureCard = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", fixtureName + ", DV")).firstMatch
+        scrollTo(fixtureCard, in: app)
+        fixtureCard.tap()
+        XCTAssertTrue(app.staticTexts.matching(identifier: "Your timeline").firstMatch.waitForExistence(timeout: 5))
+        let timelineSave = app.buttons["Save timeline update"]
+        scrollTo(timelineSave, in: app)
+        timelineSave.tap()
+        let recorded = app.switches["This is my own recorded update"]
+        XCTAssertTrue(waitUntilHittable(recorded))
+        XCTAssertTrue(waitUntilInlineVisible(app.staticTexts.matching(identifier: "Confirm this is your own recorded update.").firstMatch, in: app))
+        recorded.tap()
+        timelineSave.tap()
+        XCTAssertTrue(app.staticTexts.matching(identifier: "Update saved to your timeline").firstMatch.waitForExistence(timeout: 5))
+        screenshot("Premium-Entry-Timeline")
+        // Delete exactly the uniquely named fictional entry created above, never another saved record.
+        let delete = app.buttons["Delete entry record"]
+        scrollTo(delete, in: app)
+        delete.tap()
+        XCTAssertTrue(app.alerts["Delete this entry record?"].waitForExistence(timeout: 3))
+        app.alerts.buttons["Delete record"].tap()
+        XCTAssertTrue(app.buttons["add-entry"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", fixtureName + ", DV")).firstMatch.exists)
+    }
+
+    /// Use a dedicated simulator with only the fictional passport PNG in Photos.
+    /// The fixture exercises file preparation only; it is not a valid DV portrait.
+    @MainActor func testPremiumPhotoLibraryReview() throws {
+        continueAfterFailure = false
+        try XCTSkipUnless(ProcessInfo.processInfo.environment["DV_PREMIUM_UI_TESTS"] == "1", "Requires the updated iOS app and the fictional image seeded in simulator Photos.")
+        let app = XCUIApplication(bundleIdentifier: ProcessInfo.processInfo.environment["DV_UI_BUNDLE_ID"] ?? "com.dvlottery.expo")
+        acceptOpenAppPrompt()
+        startIsolated(app)
+        dismissDevelopmentMenu(app)
+        if app.buttons["tour-skip"].waitForExistence(timeout: 2) { app.buttons["tour-skip"].tap() }
+        let photoTab = app.descendants(matching: .any).matching(identifier: "tab-photos").firstMatch
+        XCTAssertTrue(photoTab.waitForExistence(timeout: 20))
+        XCTAssertTrue(waitUntilHittable(photoTab), "Photos tab must be unobstructed before this flow begins.")
+        dismissKeyboardBeforeNavigation(app)
+        photoTab.tap()
+        XCTAssertTrue(app.staticTexts.matching(identifier: "A photo for each person").firstMatch.waitForExistence(timeout: 5), app.debugDescription)
+        let reviews = app.buttons.matching(NSPredicate(format: "label == %@ OR label == %@", "Review photo", "View & edit review"))
+        let originalCount = reviews.count
+        let choose = app.buttons["Choose from Photos"]
+        scrollTo(choose, in: app)
+        choose.tap()
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        for label in ["Allow Full Access", "Allow Access to All Photos", "Allow"] {
+            if springboard.buttons[label].waitForExistence(timeout: 1) { springboard.buttons[label].tap(); break }
+        }
+        let fixture = app.images.matching(NSPredicate(format: "label BEGINSWITH 'Photo' OR label BEGINSWITH 'Screenshot'")).firstMatch
+        if fixture.waitForExistence(timeout: 5) {
+            fixture.tap()
+        } else {
+            // UIImagePickerController (editing enabled) exposes its grid as cells
+            // on some iOS versions, while PHPicker uses images.
+            let photoCell = app.cells.matching(NSPredicate(format: "label BEGINSWITH 'Photo' OR label BEGINSWITH 'Screenshot'")).firstMatch
+            XCTAssertTrue(photoCell.waitForExistence(timeout: 5), app.debugDescription)
+            photoCell.tap()
+        }
+        let crop = app.buttons["Choose"]
+        if crop.waitForExistence(timeout: 5) {
+            screenshot("Premium-Photo-Square-Crop")
+            crop.tap()
+        } else if app.buttons["Use Photo"].exists {
+            app.buttons["Use Photo"].tap()
+        }
+        XCTAssertTrue(app.staticTexts.matching(identifier: "Review your photo").firstMatch.waitForExistence(timeout: 15), app.debugDescription)
+        XCTAssertTrue(app.images["Preview of your prepared photo"].exists)
+        screenshot("Premium-Photo-Preview")
+        let use = app.buttons["Use this photo"]
+        XCTAssertTrue(use.isHittable)
+        use.tap()
+        let date = app.textFields["Original photo taken on"]
+        let dateError = app.staticTexts.matching(identifier: "Enter the original capture date as YYYY-MM-DD, not a future date.").firstMatch
+        XCTAssertTrue(dateError.waitForExistence(timeout: 5))
+        XCTAssertTrue(waitUntilHittable(date))
+        XCTAssertTrue(waitUntilInlineVisible(dateError, in: app), "Missing capture date should be revealed automatically.")
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd"
+        replaceText(date, with: formatter.string(from: Date()), in: app)
+        use.tap()
+        let confirmed = app.switches["I confirm the original capture date"]
+        XCTAssertTrue(waitUntilHittable(confirmed))
+        XCTAssertTrue(waitUntilInlineVisible(app.staticTexts.matching(identifier: "Confirm when this photo was originally taken.").firstMatch, in: app))
+        confirmed.tap()
+        use.tap()
+        XCTAssertTrue(app.staticTexts.matching(identifier: "Photo saved on this device").firstMatch.waitForExistence(timeout: 5))
+        XCTAssertEqual(reviews.count, originalCount + 1)
+        let newest = reviews.element(boundBy: 0)
+        XCTAssertEqual(newest.label, "Review photo", "Saving a file must not mark manual composition checks complete.")
+        scrollTo(newest, in: app)
+        newest.tap()
+        XCTAssertTrue(app.staticTexts.matching(identifier: "Your photo review").firstMatch.waitForExistence(timeout: 5))
+        let composition = app.switches["Composition reviewed"]
+        scrollTo(composition, in: app)
+        composition.tap()
+        let notReused = app.switches["Not used in a previous DV entry"]
+        scrollTo(notReused, in: app)
+        notReused.tap()
+        let reviewed = app.staticTexts.matching(identifier: "Reviewed by you").firstMatch
+        scrollTo(reviewed, in: app)
+        XCTAssertTrue(reviewed.isHittable)
+        screenshot("Premium-Photo-Manual-Review")
+        let export = app.buttons["Export JPEG"]
+        scrollTo(export, in: app)
+        XCTAssertTrue(export.isHittable, "A prepared JPEG must remain exportable from review.")
+        // Do not choose any share destination or transmit the fixture externally.
+        export.tap()
+        let activity = app.buttons.matching(NSPredicate(format: "label == 'Copy' OR label == 'Save Image' OR label == 'Save to Files'")).firstMatch
+        XCTAssertTrue(activity.waitForExistence(timeout: 5), app.debugDescription)
+        screenshot("Premium-Photo-Export-Sheet")
+        let shareClose = app.buttons.matching(identifier: "Close").allElementsBoundByIndex.last { $0.isHittable }
+        XCTAssertNotNil(shareClose, "The native share sheet must be dismissible without sharing.")
+        shareClose?.tap()
+        XCTAssertTrue(app.staticTexts.matching(identifier: "Your photo review").firstMatch.waitForExistence(timeout: 5))
+        // The current sheet is the newly prepended fixture, never an existing photo.
+        let delete = app.buttons["Delete photo"]
+        scrollTo(delete, in: app)
+        delete.tap()
+        XCTAssertTrue(app.alerts["Delete this photo?"].waitForExistence(timeout: 3))
+        app.alerts.buttons["Delete"].tap()
+        XCTAssertTrue(choose.waitForExistence(timeout: 5))
+        XCTAssertEqual(reviews.count, originalCount)
+        screenshot("Premium-Photo-Fixture-Cleaned-Up")
+    }
+
+    /// Read-only layout sweep for small iPhone, Pro Max and iPad. No records are changed.
+    @MainActor func testPremiumScreensResponsive() throws {
+        continueAfterFailure = false
+        try XCTSkipUnless(ProcessInfo.processInfo.environment["DV_PREMIUM_UI_TESTS"] == "1", "Requires the updated iOS app installed in a simulator.")
+        let app = XCUIApplication(bundleIdentifier: ProcessInfo.processInfo.environment["DV_UI_BUNDLE_ID"] ?? "com.dvlottery.expo")
+        acceptOpenAppPrompt()
+        startIsolated(app)
+        dismissDevelopmentMenu(app)
+        if app.buttons["tour-skip"].waitForExistence(timeout: 2) { app.buttons["tour-skip"].tap() }
+        if app.buttons["Close"].exists { app.buttons["Close"].tap() }
+        let home = app.descendants(matching: .any).matching(identifier: "tab-home").firstMatch
+        XCTAssertTrue(home.waitForExistence(timeout: 20), app.debugDescription)
+        dismissKeyboardBeforeNavigation(app)
+        home.tap()
+        let next = app.buttons["home-next-action"]
+        XCTAssertTrue(next.waitForExistence(timeout: 5))
+        scrollTo(next, in: app)
+        XCTAssertTrue(next.isHittable)
+        screenshot("Responsive-Home")
+        dismissKeyboardBeforeNavigation(app)
+        app.descendants(matching: .any).matching(identifier: "tab-apply").firstMatch.tap()
+        XCTAssertTrue(app.staticTexts.matching(identifier: "Prepare your entry").firstMatch.waitForExistence(timeout: 5))
+        let continueButton = app.buttons["apply-continue"]
+        XCTAssertTrue(continueButton.isHittable, "The sticky action must fit above the tab bar on every device.")
+        screenshot("Responsive-Prepare")
+        dismissKeyboardBeforeNavigation(app)
+        app.descendants(matching: .any).matching(identifier: "tab-photos").firstMatch.tap()
+        XCTAssertTrue(app.staticTexts.matching(identifier: "A photo for each person").firstMatch.waitForExistence(timeout: 5))
+        let choosePhoto = app.buttons["Choose from Photos"]
+        scrollTo(choosePhoto, in: app)
+        XCTAssertTrue(choosePhoto.isHittable)
+        screenshot("Responsive-Photos")
+        dismissKeyboardBeforeNavigation(app)
+        app.descendants(matching: .any).matching(identifier: "tab-my-entries").firstMatch.tap()
+        let add = app.buttons["add-entry"]
+        XCTAssertTrue(add.waitForExistence(timeout: 5))
+        scrollTo(add, in: app)
+        screenshot("Responsive-Entries")
+        app.buttons["Open settings"].tap()
+        XCTAssertTrue(app.buttons["replay-welcome-tour"].waitForExistence(timeout: 5))
+        screenshot("Responsive-Settings")
+        app.buttons["Close"].tap()
+        dismissKeyboardBeforeNavigation(app)
+        home.tap()
+    }
+
+    @MainActor private func startIsolated(_ app: XCUIApplication, standalone: Bool = true) {
+        if standalone { app.terminate(); app.launch() }
+        else { app.activate() }
+    }
+
+    @MainActor private func dismissKeyboardBeforeNavigation(_ app: XCUIApplication) {
+        guard app.keyboards.firstMatch.exists else { return }
+        let done = app.buttons["Dismiss keyboard"]
+        if done.exists && done.isHittable {
+            done.tap()
+        } else if app.keyboards.buttons["Done"].exists {
+            app.keyboards.buttons["Done"].tap()
+        } else {
+            // The production scroll views use keyboardDismissMode=on-drag.
+            // This is navigation cleanup, never used to reveal a validation error.
+            let scroll = app.scrollViews.firstMatch
+            if scroll.exists {
+                scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.85, dy: 0.7))
+                    .press(forDuration: 0.1, thenDragTo: scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.85, dy: 0.45)))
+            }
+        }
+        let gone = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: app.keyboards.firstMatch)
+        XCTAssertEqual(XCTWaiter.wait(for: [gone], timeout: 5), .completed, "Dismiss the keyboard before using the bottom tabs.")
+    }
+
+    /// Accessibility alerts can be visible without reporting an actionable hit
+    /// point. Check their full frame against the unobscured scroll viewport.
+    @MainActor private func waitUntilInlineVisible(_ label: XCUIElement, in app: XCUIApplication, timeout: TimeInterval = 5) -> Bool {
+        let predicate = NSPredicate { _, _ in
+            guard label.exists else { return false }
+            let frame = label.frame
+            guard frame.width > 0 && frame.height > 0 else { return false }
+            var viewport = app.frame
+            let scroll = app.scrollViews.firstMatch
+            if scroll.exists { viewport = viewport.intersection(scroll.frame) }
+            let keyboard = app.keyboards.firstMatch
+            var bottom = viewport.maxY
+            if keyboard.exists { bottom = min(bottom, keyboard.frame.minY) }
+            for identifier in ["apply-continue", "Save entry", "Use this photo"] {
+                let action = app.buttons[identifier]
+                if action.exists && action.isHittable { bottom = min(bottom, action.frame.minY) }
+            }
+            return frame.minX >= viewport.minX - 1 && frame.maxX <= viewport.maxX + 1
+                && frame.minY >= viewport.minY - 1 && frame.maxY <= bottom + 1
+        }
+        return XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: predicate, object: nil)], timeout: timeout) == .completed
+    }
+
+    @MainActor private func openPreparationSection(_ section: String, in app: XCUIApplication) {
+        let detailStep = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Step 1: Your details")).firstMatch
+        scrollTo(detailStep, in: app)
+        detailStep.tap()
+        let sectionButton = app.buttons["details-\(section)"]
+        scrollTo(sectionButton, in: app)
+        sectionButton.tap()
+    }
+
+    @MainActor private func replaceText(_ field: XCUIElement, with text: String, in app: XCUIApplication) {
+        scrollTo(field, in: app)
+        field.tap()
+        let current = field.value as? String ?? ""
+        field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: current.count + 1) + text)
+    }
+
+    @MainActor private func waitUntilHittable(_ element: XCUIElement, timeout: TimeInterval = 5) -> Bool {
+        let expectation = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == true AND hittable == true"), object: element)
+        return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
     }
 
     @MainActor private func scrollTo(_ element: XCUIElement, in app: XCUIApplication) {
@@ -189,25 +574,30 @@ final class ExpoSmokeTests: XCTestCase {
         if app.buttons["tour-skip"].waitForExistence(timeout: 2) { app.buttons["tour-skip"].tap() }
         let home = app.descendants(matching: .any).matching(identifier: "tab-home").firstMatch
         XCTAssertTrue(home.waitForExistence(timeout: 45), app.debugDescription)
+        dismissKeyboardBeforeNavigation(app)
         home.tap()
         app.swipeDown()
         app.swipeDown()
         screenshot("Expo-Home")
+        dismissKeyboardBeforeNavigation(app)
         app.descendants(matching: .any).matching(identifier: "tab-apply").firstMatch.tap()
-        XCTAssertTrue(app.staticTexts["Prepare your entry"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts.matching(identifier: "Prepare your entry").firstMatch.waitForExistence(timeout: 5))
         screenshot("Expo-Apply")
         scrollTo(app.buttons["apply-continue"], in: app)
         app.buttons["apply-continue"].tap()
-        XCTAssertTrue(app.staticTexts["A few things to complete"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts.matching(identifier: "A few things to complete").firstMatch.waitForExistence(timeout: 5))
+        dismissKeyboardBeforeNavigation(app)
         app.descendants(matching: .any).matching(identifier: "tab-photos").firstMatch.tap()
         XCTAssertTrue(app.buttons["Choose from Photos"].waitForExistence(timeout: 5))
         screenshot("Expo-Photos")
+        dismissKeyboardBeforeNavigation(app)
         app.descendants(matching: .any).matching(identifier: "tab-my-entries").firstMatch.tap()
         XCTAssertTrue(app.buttons["add-entry"].waitForExistence(timeout: 5))
         screenshot("Expo-Entries")
         app.buttons["add-entry"].tap()
         XCTAssertTrue(app.textFields["Applicant full name"].waitForExistence(timeout: 5))
         app.buttons["Close"].tap()
+        dismissKeyboardBeforeNavigation(app)
         home.tap()
     }
 
@@ -217,23 +607,23 @@ final class ExpoSmokeTests: XCTestCase {
         let bundle = ProcessInfo.processInfo.environment["DV_UI_BUNDLE_ID"] ?? "host.exp.Exponent"
         let app = XCUIApplication(bundleIdentifier: bundle)
         acceptOpenAppPrompt()
-        app.activate()
+        startIsolated(app, standalone: bundle != "host.exp.Exponent")
         dismissDevelopmentMenu(app)
 
         for exitPage in 1...4 {
             if !app.buttons["tour-skip"].exists { replayWelcome(app) }
-            XCTAssertTrue(app.staticTexts["tour-page-1"].waitForExistence(timeout: 5))
+            XCTAssertTrue(app.staticTexts.matching(identifier: "tour-page-1").firstMatch.waitForExistence(timeout: 5))
             if exitPage > 1 {
                 for page in 2...exitPage {
                     app.buttons["tour-next"].tap()
-                    XCTAssertTrue(app.staticTexts["tour-page-\(page)"].waitForExistence(timeout: 3))
+                    XCTAssertTrue(app.staticTexts.matching(identifier: "tour-page-\(page)").firstMatch.waitForExistence(timeout: 3))
                 }
             }
             if exitPage == 3 {
                 app.buttons["tour-back"].tap()
-                XCTAssertTrue(app.staticTexts["tour-page-2"].exists)
+                XCTAssertTrue(app.staticTexts.matching(identifier: "tour-page-2").firstMatch.exists)
                 app.buttons["tour-next"].tap()
-                XCTAssertTrue(app.staticTexts["tour-page-3"].exists)
+                XCTAssertTrue(app.staticTexts.matching(identifier: "tour-page-3").firstMatch.exists)
             }
             XCTAssertTrue(app.buttons["tour-skip"].isHittable)
             screenshot("Welcome-\(exitPage)")
@@ -245,7 +635,7 @@ final class ExpoSmokeTests: XCTestCase {
         replayWelcome(app)
         for page in 2...4 {
             app.buttons["tour-next"].tap()
-            XCTAssertTrue(app.staticTexts["tour-page-\(page)"].waitForExistence(timeout: 3))
+            XCTAssertTrue(app.staticTexts.matching(identifier: "tour-page-\(page)").firstMatch.waitForExistence(timeout: 3))
         }
         XCTAssertEqual(app.buttons["tour-next"].label, "Get started")
         app.buttons["tour-next"].tap()
@@ -281,12 +671,12 @@ final class ExpoSmokeTests: XCTestCase {
         }
         XCTAssertTrue(app.buttons["replay-welcome-tour"].waitForExistence(timeout: 5))
         app.buttons["replay-welcome-tour"].tap()
-        XCTAssertTrue(app.staticTexts["tour-page-1"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts.matching(identifier: "tour-page-1").firstMatch.waitForExistence(timeout: 5))
     }
 
     @MainActor private func dismissDevelopmentMenu(_ app: XCUIApplication) {
         if app.buttons["xmark"].waitForExistence(timeout: 2) {
-            let label = app.staticTexts["Tools button"]
+            let label = app.staticTexts.matching(identifier: "Tools button").firstMatch
             if label.exists {
                 if !label.isHittable { app.swipeUp() }
                 // Expo Go exposes the text and the unlabeled UISwitch separately.

@@ -17,3 +17,12 @@ No additional outer margin or shadow should be added.
 The shared Expo `BrandMark` supplies the app header, loading state, welcome tour,
 and About screen. `expo-splash-screen` uses the same mark. SwiftUI uses `BrandIcon`
 in its header, About screen, privacy cover, and launch storyboard.
+
+## Next artwork
+
+The consumer UI overhaul uses the current image provisionally. A replacement icon
+has been requested by the owner but has not yet been supplied. Keep the shared
+asset paths stable: replace `icon-source.png` with the approved full-bleed,
+1024 × 1024 opaque sRGB PNG, then run `swift scripts/generate_icon.swift`.
+This updates the Expo/native AppIcon and the shared header, onboarding and loading
+mark together. Keep the independent-app disclaimer; do not add a government seal.

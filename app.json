@@ -13,7 +13,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.dvlottery.expo",
       "appleTeamId": "ZDK3K9BT5S",
-      "buildNumber": "2",
+      "buildNumber": "3",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -43,7 +43,7 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#F4F6FA",
+          "backgroundColor": "#F5F7FB",
           "image": "./assets/branding/mark.png",
           "imageWidth": 112,
           "resizeMode": "contain"

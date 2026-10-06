@@ -19,6 +19,18 @@ Reload Expo Go to see the in-app branding. Installing a rebuilt iOS app is requi
 
 Current logo previews from the standalone Release app: [iPhone 15](docs/screenshots/iphone15-gold-logo-welcome.png) and [iPad](docs/screenshots/ipad-gold-logo-welcome.png).
 
+## Consumer experience
+
+The shared visual system lives in `expo-app/theme.ts` and `expo-app/ui.tsx`.
+`formNavigation.tsx` provides the same inline-error, first-invalid focus,
+keyboard and sticky-action behavior across preparation and modal forms. Home
+uses the existing checklist rules to show progress and the next useful action.
+
+Country matching is bundled locally in `countryNormalization.ts`; scanning
+never infers birthplace or eligibility from nationality. The current logo is
+provisional pending the owner's replacement artwork; see
+[branding instructions](assets/branding/README.md).
+
 ## Run in Expo Go
 
 Use Node 22.13+ or Node 24.3+ (`nvm use` selects the checked-in Node 24 preference) and an Expo Go version compatible with **Expo SDK 57**. Android and web are outside this prototype’s scope.

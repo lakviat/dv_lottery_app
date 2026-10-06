@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { applyPassport, mrzCheckDigit, parsePassport } from "./passport";
+import { applyPassport, mrzCheckDigit, parsePassport, passportFieldCount } from "./passport";
 import { makeDraft, makePerson } from "./models";
 
 // Public ICAO specimen: fictional Utopia passport, never a user's document.
@@ -83,4 +83,52 @@ test("confirmed import preserves birthplace, eligibility, family, photos readine
   assert.equal(result.reviewed, false);
   assert.equal(result.passportReviewed, false);
   assert.equal(result.passportPlan, "");
+});
+
+test("confirmed import maps nationality and issuer without inferring birthplace or eligibility", () => {
+  const reading = parsePassport([first.replace("UTO", "KGZ"), second.replace("UTO", "KGZ")]);
+  assert.equal(reading.issuer, "KGZ", "Parser retains source code for review");
+  assert.equal(reading.nationality, "KGZ");
+  assert.equal(passportFieldCount(reading), 9);
+  const draft = makeDraft();
+  const result = applyPassport(draft, reading);
+  assert.equal(result.passport.issuer, "Kyrgyzstan");
+  assert.equal(result.passport.nationality, "Kyrgyzstan");
+  assert.equal(result.people[0].country, "");
+  assert.equal(result.eligibilityCountry, "");
+  assert.equal(result.people[0].first, "ANNA");
+  assert.equal(result.people[0].middle, "MARIA");
+  assert.equal(result.people[0].last, "ERIKSSON");
+  assert.equal(result.people[0].dob, "1974-08-12");
+  assert.equal(result.people[0].sex, "Female");
+  assert.equal(result.passport.number, "L898902C3");
+  assert.equal(result.passport.expires, "2012-04-15");
+});
+
+test("unknown nationality/authority or sex never erases user values during confirmed import", () => {
+  const draft = makeDraft();
+  draft.passport.issuer = "Canada";
+  draft.passport.nationality = "France";
+  draft.people[0].sex = "Female";
+  draft.people[0].city = "Toronto";
+  draft.people[0].country = "Canada";
+  draft.education = "Master’s degree";
+  draft.address = "Example existing address";
+  const reading = { ...parsePassport([first, second]), sex: "" };
+  assert.equal(passportFieldCount(reading), 6);
+  const result = applyPassport(draft, reading);
+  assert.equal(result.passport.issuer, "Canada");
+  assert.equal(result.passport.nationality, "France");
+  assert.equal(result.people[0].sex, "Female");
+  assert.equal(result.people[0].city, "Toronto");
+  assert.equal(result.people[0].country, "Canada");
+  assert.equal(result.education, draft.education);
+  assert.equal(result.address, draft.address);
+});
+
+test("reviewed human-readable country values use the same canonical mapping", () => {
+  const reading = { ...parsePassport([first, second]), issuer: "Kyrgyz Republic", nationality: "KG" };
+  const result = applyPassport(makeDraft(), reading);
+  assert.equal(result.passport.issuer, "Kyrgyzstan");
+  assert.equal(result.passport.nationality, "Kyrgyzstan");
 });

@@ -138,3 +138,47 @@ Checked October 6, 2026, for version `0.1.0 (2)`.
 - Reviewed the captured first-page screenshots for the actual new artwork and layout: `docs/screenshots/iphone15-gold-logo-welcome.png` and `docs/screenshots/ipad-gold-logo-welcome.png`.
 
 Physical-device launch timing remains a TestFlight check. Bundle identifiers, storage keys, and user-data schemas are unchanged.
+
+## Consumer UI and form experience — build 3
+
+The Expo app keeps the existing record schema, storage keys, local OCR module,
+photo conversion, alert services, official links and bundle identifier. The
+separate SwiftUI prototype is not the distributed app and was not redesigned.
+
+Implemented a shared navy/cobalt visual system, next-action Home dashboard,
+three-step orientation, grouped personal/contact/family inputs, sticky actions,
+field-level validation with scroll/focus and keyboard Next/Done, compact passport
+recognition review, canonical country matching, and photo/entry review sheets.
+The current artwork is temporary pending the user's replacement asset; all live
+branding remains centrally wired through `assets/branding/` and `BrandMark`.
+
+- TypeScript and 38 application/service tests passed, including field targeting,
+  missing education, country aliases/codes, conservative passport autofill,
+  migrations, and duplicate entry/timeline validation.
+- Native iOS text content types follow React Native's
+  [TextInput documentation](https://reactnative.dev/docs/textinput).
+  Contact suggestions depend on iOS, the keyboard and the user's stored contacts;
+  hints do not read the user's Contacts database or guarantee a suggestion.
+- Country mapping uses bundled CLDR/UN code/name data and explicit ICAO aliases,
+  with exact normalized matches only. Unknown or ambiguous values remain blank.
+  See `country-data.LICENSE.txt` and `countryNormalization.ts` for provenance.
+- No lint script is configured in the project. Changed source was formatted and
+  checked with TypeScript, tests, and `git diff --check`.
+- Production device Release archive and standalone simulator Release build
+  passed. The archive contains `main.jsbundle`, reports `0.1.0 (3)` and retains
+  `com.dvlottery.expo` and its iOS 16.4 deployment target.
+- Responsive native checks passed across all five primary screens on iPhone SE
+  (3rd generation, iOS 18.2), Pro Max (iOS 27), and iPad Air 11-inch (M4, iOS 27).
+  Reviewed the actual screenshots for safe areas, footer/tab separation,
+  readable wrapping and the two-column iPad Home layout. Result bundles are
+  `Premium-Small-Final.xcresult`, `Premium-ProMax.xcresult`, and
+  `Premium-iPad-Final.xcresult` under ignored `build/`.
+- The welcome tour's navigation, every exit, replay and completion passed in
+  the standalone iPhone 15 Release app. The first small-device attempt timed out
+  while launching; a warm launch and the final retry passed without changing
+  deployment targets or signing configuration.
+
+Simulator UI results and release upload details are recorded after verification
+in `docs/TESTFLIGHT.md`. Physical-camera quality, tactile haptic feel, contact
+suggestion availability, and exhaustive VoiceOver/Dynamic Type combinations
+remain device checks; simulator tests cannot certify them.

@@ -1,4 +1,5 @@
 import { Draft, Person, parseDate, today } from "./models";
+import { normalizeCountry } from "./countryNormalization";
 
 export type PassportReading = {
   first: string;
@@ -145,6 +146,7 @@ export function parsePassport(lines: string[], now = today()): PassportReading {
   return result;
 }
 
+/** Use only after the review screen has obtained explicit replacement consent. */
 export function applyPassport(draft: Draft, reading: PassportReading): Draft {
   const primary: Person = {
     ...draft.people[0],
@@ -165,10 +167,22 @@ export function applyPassport(draft: Draft, reading: PassportReading): Draft {
     people: [primary, ...draft.people.slice(1)],
     passport: {
       number: reading.number,
-      issuer: reading.issuer,
-      nationality: reading.nationality,
+      // An unsupported authority/stateless code is not a country. Preserve an
+      // existing user value rather than replacing it with a guess or blank.
+      issuer: normalizeCountry(reading.issuer) ?? draft.passport.issuer,
+      nationality: normalizeCountry(reading.nationality) ?? draft.passport.nationality,
       expires: reading.expires,
     },
     // A scan does not prove required page scans, eligibility or portrait readiness.
   };
+}
+
+/** Count only values which can actually fill corresponding fields. */
+export function passportFieldCount(reading: PassportReading): number {
+  return [
+    reading.first.trim(), reading.middle.trim(), reading.last.trim(),
+    reading.dob, reading.sex, reading.number.trim(),
+    normalizeCountry(reading.issuer), normalizeCountry(reading.nationality),
+    reading.expires,
+  ].filter(Boolean).length;
 }

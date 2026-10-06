@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Alert,
   Keyboard,
@@ -8,7 +8,8 @@ import {
   View,
 } from "react-native";
 import { PassportCapture } from "./PassportCapture";
-import { applyPassport } from "./passport";
+import { applyPassport, passportFieldCount } from "./passport";
+import { normalizeCountry } from "./countryNormalization";
 import countries from "./countries.json";
 import {
   Draft,
@@ -18,14 +19,19 @@ import {
   detailsIssues,
   displayBirthDate,
   normalizeBirthDate,
-  personErrors,
   makePerson,
-  needsSpouse,
   official,
   personName,
   photoReviewed,
   steps,
 } from "./models";
+import {
+  detailsFieldErrors,
+  familyAddOptions,
+  personFieldID,
+  photoFieldErrors,
+  reviewFieldErrors,
+} from "./preparation";
 import {
   Badge,
   Body,
@@ -33,18 +39,23 @@ import {
   C,
   Card,
   Field,
+  FormAnchor,
+  FormSection,
   Icon,
-  Label,
   LinkRow,
   Notice,
+  PageHeading,
+  ProgressSteps,
   Row,
   Screen,
   Select,
   Stack,
   Title,
   Toggle,
+  feedback,
   openOfficial,
   s,
+  useFormNavigation,
 } from "./ui";
 
 type Props = {
@@ -52,7 +63,10 @@ type Props = {
   update: (fn: (r: Records) => Records) => void;
   photos: () => void;
   addEntry: () => void;
+  scanRequest?: number;
 };
+const sections = ["personal", "contact", "family"] as const;
+const sectionLabels = ["Personal", "Contact", "Family"];
 const maritalOptions = [
   "Unmarried",
   "Married — spouse is not a U.S. citizen / LPR",
@@ -77,91 +91,127 @@ const educationOptions = [
 function PersonFields({
   person,
   change,
-  showErrors = false,
+  errors,
 }: {
-  showErrors?: boolean;
   person: Person;
   change: (p: Person) => void;
+  errors: Record<string, string>;
 }) {
-  const errors = showErrors ? personErrors(person) : {};
   const set = (key: keyof Person, value: string | boolean) =>
     change({ ...person, [key]: value });
+  const field = (key: string) => ({
+    fieldId: personFieldID(person.id, key),
+    error: errors[personFieldID(person.id, key)],
+  });
+  const noNames = person.noFirst && person.noLast;
   return (
-    <Stack>
-      <Field
-        label="First / given name"
-        error={errors.first}
-        value={person.first}
-        editable={!person.noFirst}
-        onChangeText={(v) => set("first", v)}
-      />
-      <Toggle
-        title="No first / given name"
-        value={person.noFirst}
-        onChange={(v) =>
-          change({ ...person, noFirst: v, first: v ? "" : person.first })
-        }
-      />
-      <Field
-        label="Middle name (optional)"
-        value={person.middle}
-        onChangeText={(v) => set("middle", v)}
-      />
-      <Field
-        label="Last / family name"
-        error={errors.last}
-        value={person.last}
-        editable={!person.noLast}
-        onChangeText={(v) => set("last", v)}
-      />
-      <Toggle
-        title="No last / family name"
-        value={person.noLast}
-        onChange={(v) =>
-          change({ ...person, noLast: v, last: v ? "" : person.last })
-        }
-      />
-      <Field
-        label="Date of birth"
-        placeholder="MM/DD/YYYY"
-        help="Month / day / year. You can also paste YYYY-MM-DD."
-        error={errors.dob}
-        value={displayBirthDate(person.dob)}
-        onChangeText={(v) => set("dob", v)}
-        onBlur={() => set("dob", normalizeBirthDate(person.dob))}
-        keyboardType="numbers-and-punctuation"
-        maxLength={10}
-      />
-      <Select
-        label="Sex (official form)"
-        error={errors.sex}
-        value={person.sex}
-        options={["Male", "Female"]}
-        onChange={(v) => set("sex", v)}
-      />
-      <Field
-        label="City of birth"
-        error={errors.city}
-        value={person.city}
-        onChangeText={(v) => set("city", v)}
-      />
-      <Select
-        label="Country of birth"
-        error={errors.country}
-        value={person.country}
-        options={countries}
-        onChange={(v) => set("country", v)}
-        searchable
-      />
+    <Stack gap={28}>
+      <FormSection title="Personal information">
+        <Field
+          {...field("first")}
+          fieldId={
+            noNames
+              ? `${personFieldID(person.id, "first")}-disabled`
+              : personFieldID(person.id, "first")
+          }
+          error={noNames ? undefined : field("first").error}
+          label="First / given name"
+          value={person.first}
+          editable={!person.noFirst}
+          textContentType="givenName"
+          autoCapitalize="words"
+          onChangeText={(v) => set("first", v)}
+        />
+        <Toggle
+          fieldId={noNames ? personFieldID(person.id, "first") : undefined}
+          error={noNames ? field("first").error : undefined}
+          title="No first / given name"
+          value={person.noFirst}
+          onChange={(v) =>
+            change({ ...person, noFirst: v, first: v ? "" : person.first })
+          }
+        />
+        <Field
+          {...field("middle")}
+          label="Middle name (optional)"
+          value={person.middle}
+          textContentType="middleName"
+          autoCapitalize="words"
+          onChangeText={(v) => set("middle", v)}
+        />
+        <Field
+          {...field("last")}
+          label="Last / family name"
+          value={person.last}
+          editable={!person.noLast}
+          textContentType="familyName"
+          autoCapitalize="words"
+          onChangeText={(v) => set("last", v)}
+        />
+        <Toggle
+          title="No last / family name"
+          value={person.noLast}
+          onChange={(v) =>
+            change({ ...person, noLast: v, last: v ? "" : person.last })
+          }
+        />
+      </FormSection>
+      <FormSection
+        title="Birth information"
+        description="Use your place of birth, which may differ from your nationality."
+      >
+        <Field
+          {...field("dob")}
+          label="Date of birth"
+          placeholder="MM/DD/YYYY"
+          help="Month / day / year"
+          value={displayBirthDate(person.dob)}
+          onChangeText={(v) => set("dob", v)}
+          onBlur={() => set("dob", normalizeBirthDate(person.dob))}
+          keyboardType="numbers-and-punctuation"
+          maxLength={10}
+        />
+        <Select
+          {...field("sex")}
+          label="Sex (official form)"
+          value={person.sex}
+          options={["Male", "Female"]}
+          onChange={(v) => set("sex", v)}
+        />
+        <Field
+          {...field("city")}
+          label="City of birth"
+          value={person.city}
+          autoCapitalize="words"
+          onChangeText={(v) => set("city", v)}
+        />
+        <Select
+          {...field("country")}
+          label="Country of birth"
+          value={person.country}
+          options={countries}
+          onChange={(v) => set("country", v)}
+          searchable
+        />
+      </FormSection>
     </Stack>
   );
 }
 
-export function ApplyScreen({ records, update, photos, addEntry }: Props) {
+export function ApplyScreen({
+  records,
+  update,
+  photos,
+  addEntry,
+  scanRequest = 0,
+}: Props) {
   const d = records.draft;
   const scroll = useRef<ScrollView>(null);
+  const form = useFormNavigation();
   const [showErrors, setShowErrors] = useState(false);
   const [showPassport, setShowPassport] = useState(false);
+  const [scanMessage, setScanMessage] = useState("");
+  const pendingFocus = useRef(false);
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
     update((r) => ({
       ...r,
@@ -169,7 +219,9 @@ export function ApplyScreen({ records, update, photos, addEntry }: Props) {
         ...r.draft,
         [key]: value,
         started: true,
-        ...(key !== "reviewed" ? { reviewed: false } : {}),
+        ...(!["reviewed", "step", "detailsSection"].includes(key)
+          ? { reviewed: false }
+          : {}),
       },
     }));
   const changePerson = (p: Person) =>
@@ -177,21 +229,97 @@ export function ApplyScreen({ records, update, photos, addEntry }: Props) {
       "people",
       d.people.map((x) => (x.id === p.id ? p : x)),
     );
-  const issues =
+  const errors =
     d.step === 0
-      ? detailsIssues(d, d.detailsSection)
-      : draftIssues(d, records.photos, d.step);
+      ? detailsFieldErrors(d, d.detailsSection)
+      : d.step === 1
+        ? photoFieldErrors(d, records.photos)
+        : reviewFieldErrors(d);
+  const visibleErrors = showErrors ? errors : {};
+  const completed = steps.flatMap((_, i) =>
+    !draftIssues(d, records.photos, i).length ? [i] : [],
+  );
   const allIssues = steps.flatMap((_, i) => draftIssues(d, records.photos, i));
+  const resetView = () => {
+    Keyboard.dismiss();
+    scroll.current?.scrollTo({ y: 0, animated: false });
+  };
   const go = (step: number) => {
     setShowErrors(false);
-    Keyboard.dismiss();
     set("step", step);
-    scroll.current?.scrollTo({ y: 0, animated: false });
+    resetView();
+  };
+  const changeSection = (section: Draft["detailsSection"]) => {
+    setShowErrors(false);
+    set("detailsSection", section);
+    resetView();
+  };
+  useEffect(() => {
+    if (scanRequest) resetView();
+  }, [scanRequest]);
+  useEffect(() => {
+    if (pendingFocus.current) {
+      pendingFocus.current = false;
+      form.focusFirst(errors);
+    }
+  }, [d.step, d.detailsSection]);
+  const fail = (problems: Record<string, string>) => {
+    setShowErrors(true);
+    void feedback("error");
+    form.focusFirst(problems);
+  };
+  const next = () => {
+    if (Object.keys(errors).length) {
+      fail(errors);
+      return;
+    }
+    if (d.step === 0) {
+      const nextSection = sections[sections.indexOf(d.detailsSection) + 1];
+      if (nextSection) {
+        void feedback("success");
+        changeSection(nextSection);
+        return;
+      }
+      const incomplete = sections.find(
+        (section) => detailsIssues(d, section).length,
+      );
+      if (incomplete) {
+        pendingFocus.current = true;
+        setShowErrors(true);
+        set("detailsSection", incomplete);
+        return;
+      }
+    }
+    if (d.step === 2) {
+      const incomplete = [0, 1].find(
+        (step) => draftIssues(d, records.photos, step).length,
+      );
+      if (incomplete !== undefined) {
+        pendingFocus.current = true;
+        setShowErrors(true);
+        update((r) => ({
+          ...r,
+          draft: {
+            ...r.draft,
+            step: incomplete,
+            detailsSection:
+              sections.find(
+                (section) => detailsIssues(r.draft, section).length,
+              ) ?? "personal",
+          },
+        }));
+        return;
+      }
+      void feedback("success");
+      return;
+    }
+    void feedback("success");
+    go(d.step + 1);
   };
   const remove = (p: Person) =>
     Alert.alert(
       `Remove ${personName(p)}?`,
-      "Photos stay in your library. Make sure everyone required by the official instructions is included.",
+      "Photos stay in your library. Check that everyone required by the official instructions is included.",
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -205,334 +333,438 @@ export function ApplyScreen({ records, update, photos, addEntry }: Props) {
         },
       ],
     );
-  return (
-    <Screen scrollRef={scroll}>
-      <View style={{ gap: 8 }}>
-        <Label>Your next chapter</Label>
-        <Text style={{ fontSize: 30, fontWeight: "700", color: C.navy }}>
-          Prepare your entry
-        </Text>
-        <Body muted>One step at a time. Your draft saves on this device.</Body>
-      </View>
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 7 }}>
-        {steps.map((step, i) => (
-          <Pressable
-            key={step}
-            accessibilityRole="button"
-            accessibilityLabel={`Step ${i + 1}: ${step}`}
-            onPress={() => go(i)}
-            style={{
-              borderRadius: 10,
-              paddingVertical: 9,
-              paddingHorizontal: 11,
-              backgroundColor: d.step === i ? C.navy : "#E7EDF5",
-            }}
-          >
-            <Text
-              style={{
-                fontSize: 12,
-                fontWeight: "600",
-                color: d.step === i ? C.white : C.blue,
-              }}
-            >
-              {i + 1} {step}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
-      {d.step === 0 && (
-        <PassportCapture
-          currentName={personName(d.people[0])}
-          onUse={(reading) => {
-            update((r) => ({ ...r, draft: applyPassport(r.draft, reading) }));
-            setShowErrors(false);
-          }}
-        />
+  const back = () =>
+    d.step === 0
+      ? changeSection(d.detailsSection === "family" ? "contact" : "personal")
+      : go(d.step - 1);
+  const nextTitle =
+    d.step === 0
+      ? d.detailsSection === "personal"
+        ? "Continue to contact"
+        : d.detailsSection === "contact"
+          ? "Continue to family"
+          : "Continue to photos"
+      : d.step === 1
+        ? "Review your entry"
+        : !allIssues.length
+          ? "Open official DV portal"
+          : "Review checklist";
+  const footer = (
+    <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
+      {(d.step > 0 || d.detailsSection !== "personal") && (
+        <View style={{ flex: 1 }}>
+          <Button secondary title="Back" onPress={back} />
+        </View>
       )}
-      <Card>
-        <Row>
-          <Title>{steps[d.step]}</Title>
-          <Badge>
-            {d.step + 1} of {steps.length}
-          </Badge>
-        </Row>
-        {d.step === 0 && (
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-            {(["personal", "contact", "family"] as const).map(
-              (section, index) => (
-                <Pressable
-                  key={section}
-                  accessibilityRole="button"
-                  accessibilityState={{
-                    selected: d.detailsSection === section,
-                  }}
-                  testID={`details-${section}`}
-                  onPress={() => {
-                    setShowErrors(false);
-                    Keyboard.dismiss();
-                    set("detailsSection", section);
-                  }}
+      <View style={{ flex: 2.4 }}>
+        <Button
+          title={nextTitle}
+          testID="apply-continue"
+          icon={
+            d.step === 2 && !allIssues.length ? "open-outline" : "arrow-forward"
+          }
+          onPress={
+            d.step === 2 && !allIssues.length
+              ? () => void openOfficial(official.portal)
+              : next
+          }
+        />
+      </View>
+    </View>
+  );
+  return (
+    <Screen form={form} scrollRef={scroll} footer={footer}>
+      <PageHeading
+        eyebrow={`PREPARATION · STEP ${d.step + 1} OF 3`}
+        title="Prepare your entry"
+      >
+        {d.step === 0
+          ? "Start with your details. We’ll help with the rest."
+          : d.step === 1
+            ? "A recent photo for everyone included."
+            : "One final look before the official form."}
+      </PageHeading>
+      <ProgressSteps
+        steps={steps}
+        current={d.step}
+        completed={completed}
+        onSelect={go}
+      />
+      {d.step === 0 && (
+        <>
+          <View style={{ paddingVertical: 4 }}>
+            <ProgressSteps
+              compact
+              testIDs={[
+                "details-personal",
+                "details-contact",
+                "details-family",
+              ]}
+              steps={sectionLabels}
+              current={sections.indexOf(d.detailsSection)}
+              completed={sections.flatMap((section, i) =>
+                !detailsIssues(d, section).length ? [i] : [],
+              )}
+              onSelect={(i) => changeSection(sections[i])}
+            />
+          </View>
+          {d.detailsSection === "personal" && (
+            <PassportCapture
+              currentName={personName(d.people[0])}
+              onManual={() =>
+                form.focusField(
+                  personFieldID(
+                    d.people[0].id,
+                    d.people[0].noFirst ? "middle" : "first",
+                  ),
+                )
+              }
+              onUse={(reading) => {
+                update((r) => ({
+                  ...r,
+                  draft: applyPassport(r.draft, reading),
+                }));
+                setShowErrors(false);
+                setScanMessage(
+                  `${passportFieldCount(reading)} fields filled from your passport. Add your birthplace and education below.`,
+                );
+              }}
+            />
+          )}
+          {d.detailsSection === "personal" && (
+            <>
+              {!!scanMessage && (
+                <View
                   style={{
-                    padding: 10,
-                    borderRadius: 12,
-                    backgroundColor:
-                      d.detailsSection === section ? "#EAF0F8" : C.bg,
+                    flexDirection: "row",
+                    gap: 10,
+                    backgroundColor: C.successBg,
+                    padding: 16,
+                    borderRadius: 16,
                   }}
                 >
-                  <Text style={{ color: C.blue, fontWeight: "600" }}>
-                    {index + 1}.{" "}
-                    {section.charAt(0).toUpperCase() + section.slice(1)}
-                    {detailsIssues(d, section).length ? "" : " ✓"}
-                  </Text>
-                </Pressable>
-              ),
-            )}
-          </View>
-        )}
-        {d.step === 0 && d.detailsSection === "personal" && (
-          <Stack>
-            <Body>
-              Use your legal details as required by the current entry
-              instructions.
-            </Body>
-            <PersonFields
-              person={d.people[0]}
-              change={changePerson}
-              showErrors={showErrors}
-            />
-            <Select
-              label="Highest level of education"
-              value={d.education}
-              options={educationOptions}
-              onChange={(v) => set("education", v)}
-            />
-            <Button
-              secondary
-              title={
-                showPassport
-                  ? "Hide passport details"
-                  : d.passport.number
-                    ? "View passport details"
-                    : "Add passport details (optional)"
-              }
-              icon="document-outline"
-              onPress={() => setShowPassport((v) => !v)}
-            />
-            {showPassport && (
-              <Stack>
-                <Body muted>
-                  Filled from your scan after you confirm it. You can also enter
-                  or correct them here.
-                </Body>
-                <Field
-                  label="Passport number"
-                  value={d.passport.number}
-                  onChangeText={(v) =>
-                    set("passport", { ...d.passport, number: v.toUpperCase() })
-                  }
-                  autoCapitalize="characters"
-                />
-                <Field
-                  label="Issuing country / authority code"
-                  help="Passport code, e.g. KGZ. This is separate from your country of birth."
-                  value={d.passport.issuer}
-                  onChangeText={(v) =>
-                    set("passport", { ...d.passport, issuer: v.toUpperCase() })
-                  }
-                  maxLength={3}
-                  autoCapitalize="characters"
-                />
-                <Field
-                  label="Nationality code"
-                  value={d.passport.nationality}
-                  onChangeText={(v) =>
-                    set("passport", {
-                      ...d.passport,
-                      nationality: v.toUpperCase(),
-                    })
-                  }
-                  maxLength={3}
-                  autoCapitalize="characters"
-                />
-                <Field
-                  label="Passport expiry (MM/DD/YYYY)"
-                  placeholder="MM/DD/YYYY"
-                  value={displayBirthDate(d.passport.expires)}
-                  onChangeText={(v) =>
-                    set("passport", {
-                      ...d.passport,
-                      expires: normalizeBirthDate(v),
-                    })
-                  }
-                  keyboardType="numbers-and-punctuation"
-                  maxLength={10}
-                />
-              </Stack>
-            )}
-          </Stack>
-        )}
-        {d.step === 0 && d.detailsSection === "contact" && (
-          <Stack>
-            <Field
-              label="Email address"
-              value={d.email}
-              onChangeText={(v) => set("email", v)}
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-            <Field
-              label="Phone number (optional)"
-              value={d.phone}
-              onChangeText={(v) => set("phone", v)}
-              keyboardType="phone-pad"
-            />
-            <Field
-              label="In care of (optional)"
-              value={d.careOf}
-              onChangeText={(v) => set("careOf", v)}
-            />
-            <Field
-              label="Address line 1"
-              value={d.address}
-              onChangeText={(v) => set("address", v)}
-            />
-            <Field
-              label="Address line 2 (optional)"
-              value={d.address2}
-              onChangeText={(v) => set("address2", v)}
-            />
-            <Field
-              label="City / town"
-              value={d.city}
-              onChangeText={(v) => set("city", v)}
-            />
-            <Field
-              label="District / county / province / state"
-              value={d.province}
-              onChangeText={(v) => set("province", v)}
-            />
-            <Field
-              label="Postal code"
-              value={d.postal}
-              editable={!d.noPostal}
-              onChangeText={(v) => set("postal", v)}
-            />
-            <Toggle
-              title="No postal code"
-              value={d.noPostal}
-              onChange={(v) => set("noPostal", v)}
-            />
-            <Select
-              label="Mailing country"
-              value={d.country}
-              options={countries}
-              onChange={(v) => set("country", v)}
-              searchable
-            />
-            <Select
-              label="Country where you live today"
-              value={d.residence}
-              options={countries}
-              onChange={(v) => set("residence", v)}
-              searchable
-            />
-          </Stack>
-        )}
-        {d.step === 0 && d.detailsSection === "family" && (
-          <Stack>
-            <Select
-              label="Current marital status"
-              value={d.marital}
-              options={maritalOptions}
-              onChange={(v) => set("marital", v)}
-            />
-            <Notice title="Include every required family member">
-              Review the rules for your spouse and all eligible unmarried
-              children under 21, including stepchildren and adopted children,
-              even if they will not travel with you. Exceptions apply.
-            </Notice>
-            <LinkRow
-              title="Who must be included?"
-              url={official.instructions}
-            />
-            {d.people.slice(1).map((p) => (
-              <View
-                key={p.id}
-                style={{
-                  borderTopWidth: 1,
-                  borderColor: C.line,
-                  paddingTop: 18,
-                  gap: 16,
-                }}
-              >
-                <Row>
-                  <Badge>{p.relationship}</Badge>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={`Remove ${personName(p)}`}
-                    onPress={() => remove(p)}
-                    hitSlop={10}
+                  <Icon name="checkmark-circle" color={C.green} />
+                  <Text
+                    accessibilityRole="alert"
+                    style={[s.body, { flex: 1, color: C.green }]}
                   >
-                    <Icon name="trash-outline" color={C.red} />
-                  </Pressable>
-                </Row>
+                    {scanMessage}
+                  </Text>
+                </View>
+              )}
+              <Card style={{ gap: 28 }}>
                 <PersonFields
-                  person={p}
+                  person={d.people[0]}
                   change={changePerson}
-                  showErrors={showErrors}
+                  errors={visibleErrors}
                 />
-              </View>
-            ))}
-            {needsSpouse(d) &&
-              !d.people.some((p) => p.relationship === "Spouse") && (
+                <FormSection title="Education">
+                  <Select
+                    fieldId="education"
+                    error={visibleErrors.education}
+                    label="Highest level of education"
+                    value={d.education}
+                    options={educationOptions}
+                    onChange={(v) => set("education", v)}
+                  />
+                </FormSection>
                 <Button
                   secondary
-                  title="Add spouse"
-                  icon="person-add-outline"
-                  onPress={() =>
-                    set("people", [...d.people, makePerson("Spouse")])
+                  title={
+                    showPassport
+                      ? "Hide passport details"
+                      : d.passport.number
+                        ? "View passport details"
+                        : "Add passport details (optional)"
                   }
+                  icon="document-outline"
+                  onPress={() => setShowPassport((v) => !v)}
                 />
-              )}
-            <Button
-              secondary
-              title="Add child"
-              icon="person-add-outline"
-              onPress={() => set("people", [...d.people, makePerson("Child")])}
-            />
-            <Toggle
-              title="I reviewed who must be included"
-              value={d.familyReviewed}
-              onChange={(v) => set("familyReviewed", v)}
-            />
-          </Stack>
-        )}
-        {d.step === 1 && (
-          <Stack>
-            <Body>
-              Each included person needs their own recent photo. File checks
-              help you prepare; only the official process determines acceptance.
-            </Body>
-            {d.people.map((p) => {
-              const ready = records.photos.some(
-                (photo) => photo.personId === p.id && photoReviewed(photo),
-              );
-              return (
+                {showPassport && (
+                  <FormSection
+                    title="Passport details"
+                    description="Keep these separate from your birthplace. You can correct any scanned value."
+                  >
+                    <Field
+                      fieldId="passportNumber"
+                      label="Passport number"
+                      value={d.passport.number}
+                      onChangeText={(v) =>
+                        set("passport", {
+                          ...d.passport,
+                          number: v.toUpperCase(),
+                        })
+                      }
+                      autoCapitalize="characters"
+                    />
+                    <Select
+                      fieldId="passportIssuer"
+                      label="Issuing country"
+                      value={normalizeCountry(d.passport.issuer) ?? ""}
+                      options={countries}
+                      searchable
+                      onChange={(v) =>
+                        set("passport", { ...d.passport, issuer: v })
+                      }
+                    />
+                    {!!d.passport.issuer &&
+                      !normalizeCountry(d.passport.issuer) && (
+                        <Body muted>
+                          Saved issuing authority: {d.passport.issuer}. This
+                          code does not match a country. It stays saved; choose
+                          a country only if it applies to your passport.
+                        </Body>
+                      )}
+                    <Select
+                      fieldId="passportNationality"
+                      label="Nationality"
+                      value={normalizeCountry(d.passport.nationality) ?? ""}
+                      options={countries}
+                      searchable
+                      onChange={(v) =>
+                        set("passport", { ...d.passport, nationality: v })
+                      }
+                    />
+                    {!!d.passport.nationality &&
+                      !normalizeCountry(d.passport.nationality) && (
+                        <Body muted>
+                          Saved nationality code: {d.passport.nationality}. This
+                          code does not match a country. It stays saved; confirm
+                          a country only if applicable.
+                        </Body>
+                      )}
+                    <Field
+                      fieldId="passportExpires"
+                      label="Passport expiry (MM/DD/YYYY)"
+                      value={displayBirthDate(d.passport.expires)}
+                      placeholder="MM/DD/YYYY"
+                      keyboardType="numbers-and-punctuation"
+                      maxLength={10}
+                      onChangeText={(v) =>
+                        set("passport", {
+                          ...d.passport,
+                          expires: normalizeBirthDate(v),
+                        })
+                      }
+                    />
+                  </FormSection>
+                )}
+              </Card>
+            </>
+          )}
+          {d.detailsSection === "contact" && (
+            <Card style={{ gap: 28 }}>
+              <FormSection
+                title="Contact details"
+                description="Use contact information you can access."
+              >
+                <Field
+                  fieldId="email"
+                  error={visibleErrors.email}
+                  label="Email address"
+                  value={d.email}
+                  onChangeText={(v) => set("email", v)}
+                  keyboardType="email-address"
+                  textContentType="emailAddress"
+                  autoCapitalize="none"
+                />
+                <Field
+                  fieldId="phone"
+                  label="Phone number (optional)"
+                  value={d.phone}
+                  onChangeText={(v) => set("phone", v)}
+                  keyboardType="phone-pad"
+                  textContentType="telephoneNumber"
+                />
+              </FormSection>
+              <FormSection title="Mailing address">
+                <Field
+                  fieldId="careOf"
+                  label="In care of (optional)"
+                  value={d.careOf}
+                  onChangeText={(v) => set("careOf", v)}
+                  textContentType="name"
+                  autoCapitalize="words"
+                />
+                <Field
+                  fieldId="address"
+                  error={visibleErrors.address}
+                  label="Address line 1"
+                  value={d.address}
+                  onChangeText={(v) => set("address", v)}
+                  textContentType="streetAddressLine1"
+                  autoCapitalize="words"
+                />
+                <Field
+                  fieldId="address2"
+                  label="Address line 2 (optional)"
+                  value={d.address2}
+                  onChangeText={(v) => set("address2", v)}
+                  textContentType="streetAddressLine2"
+                  autoCapitalize="words"
+                />
+                <Field
+                  fieldId="city"
+                  error={visibleErrors.city}
+                  label="City / town"
+                  value={d.city}
+                  onChangeText={(v) => set("city", v)}
+                  textContentType="addressCity"
+                  autoCapitalize="words"
+                />
+                <Field
+                  fieldId="province"
+                  error={visibleErrors.province}
+                  label="District / county / province / state"
+                  value={d.province}
+                  onChangeText={(v) => set("province", v)}
+                  textContentType="addressState"
+                  autoCapitalize="words"
+                />
+                <Field
+                  fieldId="postal"
+                  error={visibleErrors.postal}
+                  label="Postal code"
+                  value={d.postal}
+                  editable={!d.noPostal}
+                  onChangeText={(v) => set("postal", v)}
+                  textContentType="postalCode"
+                  autoCapitalize="characters"
+                />
+                <Toggle
+                  title="No postal code"
+                  value={d.noPostal}
+                  onChange={(v) => set("noPostal", v)}
+                />
+                <Select
+                  fieldId="country"
+                  error={visibleErrors.country}
+                  label="Mailing country"
+                  value={d.country}
+                  options={countries}
+                  onChange={(v) => set("country", v)}
+                  searchable
+                />
+              </FormSection>
+              <FormSection title="Current residence">
+                <Select
+                  fieldId="residence"
+                  error={visibleErrors.residence}
+                  label="Country where you live today"
+                  value={d.residence}
+                  options={countries}
+                  onChange={(v) => set("residence", v)}
+                  searchable
+                />
+              </FormSection>
+            </Card>
+          )}
+          {d.detailsSection === "family" && (
+            <Card style={{ gap: 26 }}>
+              <FormSection title="You and your family">
+                <Select
+                  fieldId="marital"
+                  error={visibleErrors.marital}
+                  label="Current marital status"
+                  value={d.marital}
+                  options={maritalOptions}
+                  onChange={(v) => set("marital", v)}
+                />
+              </FormSection>
+              <Body muted>
+                Include every family member required by the current DV
+                instructions, even if they will not travel with you.
+              </Body>
+              <LinkRow
+                title="Who must be included?"
+                url={official.instructions}
+              />
+              {d.people.slice(1).map((p) => (
                 <View
                   key={p.id}
-                  style={[
-                    s.row,
-                    {
-                      gap: 12,
-                      paddingVertical: 12,
-                      borderBottomWidth: 1,
-                      borderColor: C.line,
-                    },
-                  ]}
+                  style={{
+                    borderTopWidth: 1,
+                    borderColor: C.line,
+                    paddingTop: 24,
+                    gap: 20,
+                  }}
+                >
+                  <Row>
+                    <Badge>{p.relationship}</Badge>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`Remove ${personName(p)}`}
+                      onPress={() => remove(p)}
+                      style={{ padding: 12 }}
+                    >
+                      <Icon name="trash-outline" color={C.red} />
+                    </Pressable>
+                  </Row>
+                  <PersonFields
+                    person={p}
+                    change={changePerson}
+                    errors={visibleErrors}
+                  />
+                </View>
+              ))}
+              <FormAnchor
+                fieldId="familyMembers"
+                error={visibleErrors.familyMembers}
+              >
+                <Stack gap={12}>
+                  {familyAddOptions(d).map((option) => (
+                    <Button
+                      key={option.relationship}
+                      secondary
+                      title={option.label}
+                      icon="person-add-outline"
+                      onPress={() =>
+                        set("people", [
+                          ...d.people,
+                          makePerson(option.relationship),
+                        ])
+                      }
+                    />
+                  ))}
+                </Stack>
+              </FormAnchor>
+              <Toggle
+                fieldId="familyReviewed"
+                error={visibleErrors.familyReviewed}
+                title="I reviewed who must be included"
+                value={d.familyReviewed}
+                onChange={(v) => set("familyReviewed", v)}
+              />
+            </Card>
+          )}
+        </>
+      )}
+      {d.step === 1 && (
+        <Card>
+          <Title>A photo for each person</Title>
+          <Body muted>
+            Prepare and review each photo. Only the official process can
+            determine acceptance.
+          </Body>
+          {d.people.map((p) => {
+            const ready = records.photos.some(
+              (photo) => photo.personId === p.id && photoReviewed(photo),
+            );
+            return (
+              <FormAnchor
+                key={p.id}
+                fieldId={`photo-${p.id}`}
+                error={visibleErrors[`photo-${p.id}`]}
+              >
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`${personName(p)}. ${ready ? "Photo reviewed" : "Add a photo"}`}
+                  onPress={photos}
+                  style={[s.row, { gap: 12, paddingVertical: 12 }]}
                 >
                   <Icon
                     name={ready ? "checkmark-circle" : "person-circle-outline"}
-                    color={ready ? C.green : C.muted}
+                    color={ready ? C.green : C.blue}
                   />
                   <View style={{ flex: 1 }}>
                     <Text style={s.fieldLabel}>{personName(p)}</Text>
@@ -541,215 +773,175 @@ export function ApplyScreen({ records, update, photos, addEntry }: Props) {
                   <Badge tone={ready ? "green" : "warm"}>
                     {ready ? "Reviewed" : "Photo needed"}
                   </Badge>
-                </View>
-              );
-            })}
-            <Button
-              title="Open photo library"
-              icon="camera-outline"
-              onPress={photos}
-            />
-            <LinkRow title="Official photo examples" url={official.photos} />
-          </Stack>
-        )}
-        {d.step === 2 && (
-          <Stack>
-            <Body>
-              Check your details before opening the official entry form. This
-              draft is a preparation checklist and is not transmitted to the
-              government.
-            </Body>
-            {steps.slice(0, 2).map((step, i) => {
-              const errors = draftIssues(d, records.photos, i);
-              return (
-                <Pressable
-                  key={step}
-                  accessibilityRole="button"
-                  onPress={() => go(i)}
-                  style={[s.row, { paddingVertical: 10, gap: 10 }]}
-                >
-                  <Icon
-                    name={
-                      errors.length ? "ellipse-outline" : "checkmark-circle"
-                    }
-                    color={errors.length ? C.muted : C.green}
-                  />
-                  <Text style={[s.fieldLabel, { flex: 1 }]}>{step}</Text>
-                  <Text style={s.small}>
-                    {errors.length ? `${errors.length} to review` : "Reviewed"}
-                  </Text>
-                  <Icon name="chevron-forward" size={16} />
                 </Pressable>
-              );
-            })}
+              </FormAnchor>
+            );
+          })}
+          <Button
+            secondary
+            title="Open photo library"
+            icon="camera-outline"
+            onPress={photos}
+          />
+          <LinkRow title="Official photo examples" url={official.photos} />
+        </Card>
+      )}
+      {d.step === 2 && (
+        <>
+          <Card>
+            <Row>
+              <Title>{personName(d.people[0])}</Title>
+              <Badge tone={!allIssues.length ? "green" : "blue"}>
+                {!allIssues.length ? "Reviewed" : "Final review"}
+              </Badge>
+            </Row>
             <Body muted>
-              Applicant: {personName(d.people[0])}
-              {"\n"}Program year: use the year shown on the official form.{"\n"}
-              Family members: {d.people.length - 1}
-              {"\n"}Email: {d.email || "Not entered"}
+              {d.email || "Email not entered"}
+              {"\n"}
+              {d.people.length === 1
+                ? "Primary applicant"
+                : `${d.people.length} people included`}
             </Body>
-            <Title>Before you submit</Title>
-            <Body>
-              Start with the current official instructions. A country choice
-              alone does not establish eligibility.
-            </Body>
-            <Select
-              label="Country of eligibility / chargeability"
-              value={d.eligibilityCountry}
-              options={countries}
-              onChange={(v) => set("eligibilityCountry", v)}
-              searchable
-            />
-            <Select
-              label="Eligibility basis"
-              value={d.eligibilityBasis}
-              options={[
-                "Country of birth",
-                "Spouse’s country of birth — review exception",
-                "Parent’s country of birth — review exception",
-              ]}
-              onChange={(v) => set("eligibilityBasis", v)}
-            />
-            <Select
-              label="Education or work experience basis"
-              value={d.qualification}
-              options={[
-                "High school education or equivalent",
-                "Qualifying work experience — verify occupation",
-                "I need to review the requirements",
-              ]}
-              onChange={(v) => set("qualification", v)}
-            />
-            <LinkRow
-              title="Read official DV instructions"
-              detail="Eligible countries and qualifying education / work"
-              url={official.instructions}
-            />
+            {steps.slice(0, 2).map((step, i) => (
+              <Pressable
+                key={step}
+                accessibilityRole="button"
+                onPress={() => go(i)}
+                style={[s.row, { paddingVertical: 12, gap: 10 }]}
+              >
+                <Icon
+                  name={
+                    completed.includes(i)
+                      ? "checkmark-circle"
+                      : "ellipse-outline"
+                  }
+                  color={completed.includes(i) ? C.green : C.muted}
+                />
+                <Text style={[s.fieldLabel, { flex: 1 }]}>{step}</Text>
+                <Text style={s.small}>
+                  {completed.includes(i) ? "Complete" : "Needs attention"}
+                </Text>
+                <Icon name="chevron-forward" size={16} />
+              </Pressable>
+            ))}
+          </Card>
+          <Card style={{ gap: 24 }}>
+            <FormSection
+              title="Eligibility"
+              description="Check the current official instructions. The app does not determine whether you qualify."
+            >
+              <Select
+                fieldId="eligibilityCountry"
+                error={visibleErrors.eligibilityCountry}
+                label="Country of eligibility / chargeability"
+                value={d.eligibilityCountry}
+                options={countries}
+                onChange={(v) => set("eligibilityCountry", v)}
+                searchable
+              />
+              <Select
+                fieldId="eligibilityBasis"
+                label="Eligibility basis"
+                value={d.eligibilityBasis}
+                options={[
+                  "Country of birth",
+                  "Spouse’s country of birth — review exception",
+                  "Parent’s country of birth — review exception",
+                ]}
+                onChange={(v) => set("eligibilityBasis", v)}
+              />
+              <Select
+                fieldId="qualification"
+                error={visibleErrors.qualification}
+                label="Education or work experience basis"
+                value={d.qualification}
+                options={[
+                  "High school education or equivalent",
+                  "Qualifying work experience — verify occupation",
+                  "I need to review the requirements",
+                ]}
+                onChange={(v) => set("qualification", v)}
+              />
+              <LinkRow
+                title="Read official DV instructions"
+                url={official.instructions}
+              />
+              <Toggle
+                fieldId="eligibilityReviewed"
+                error={visibleErrors.eligibilityReviewed}
+                title="I reviewed the official eligibility rules"
+                value={d.eligibilityReviewed}
+                onChange={(v) => set("eligibilityReviewed", v)}
+              />
+            </FormSection>
+            <FormSection
+              title="Passport readiness"
+              description="Keep the required page scans for official submission. A scan in this app only helps prepare your details."
+            >
+              <Select
+                fieldId="passportPlan"
+                error={visibleErrors.passportPlan}
+                label="Passport preparation"
+                value={d.passportPlan}
+                options={[
+                  "Passport and required page scans are ready",
+                  "I need to prepare my passport / page scans",
+                  "I need to review a possible exemption",
+                ]}
+                onChange={(v) => set("passportPlan", v)}
+              />
+              <LinkRow title="Read the passport rule" url={official.passport} />
+              <Toggle
+                fieldId="passportReviewed"
+                error={visibleErrors.passportReviewed}
+                title="I reviewed passport and scan requirements"
+                value={d.passportReviewed}
+                onChange={(v) => set("passportReviewed", v)}
+              />
+            </FormSection>
             <Toggle
-              title="I reviewed the official eligibility rules"
-              detail="This app does not decide whether you qualify."
-              value={d.eligibilityReviewed}
-              onChange={(v) => set("eligibilityReviewed", v)}
-            />
-            <View style={{ height: 1, backgroundColor: C.line }} />
-            <Title>Passport readiness</Title>
-            <Body muted>
-              The 2026 rule adds passport details and required page scans, with
-              limited exemptions. Enter and upload these directly on the
-              official portal. Scanning here does not submit a passport or mark
-              all required pages ready.
-            </Body>
-            <Select
-              label="Passport preparation"
-              value={d.passportPlan}
-              options={[
-                "Passport and required page scans are ready",
-                "I need to prepare my passport / page scans",
-                "I need to review a possible exemption",
-              ]}
-              onChange={(v) => set("passportPlan", v)}
-            />
-            <LinkRow
-              title="Read the passport rule"
-              detail="Official Federal Register publication"
-              url={official.passport}
-            />
-            <Toggle
-              title="I reviewed passport and scan requirements"
-              detail="Confirmed passport details stay on this device. Keep your required scans separately for official submission."
-              value={d.passportReviewed}
-              onChange={(v) => set("passportReviewed", v)}
-            />
-            <Toggle
+              fieldId="reviewed"
+              error={visibleErrors.reviewed}
               title="I reviewed my preparation details"
-              detail="I will confirm the current rules and every field on the official form."
+              detail="I will confirm every field on the official form."
               value={d.reviewed}
               onChange={(v) => set("reviewed", v)}
             />
-            <Notice title="Submit on the official website">
-              You must complete the government form, verification and any
-              required payment yourself. The app does not file entries or
-              certify readiness.
-            </Notice>
-            <Button
-              title="Open official DV portal"
-              icon="open-outline"
-              onPress={() => void openOfficial(official.portal)}
-            />
-            <Button
-              secondary
-              title="Save an existing confirmation"
-              icon="bookmark-outline"
-              onPress={addEntry}
-            />
-            <Text style={s.small}>
-              {allIssues.length
-                ? "Some preparation items still need review."
-                : "Your local checklist is reviewed. Confirm every requirement on the official form."}
-            </Text>
-          </Stack>
-        )}
-        {showErrors && issues.length > 0 && (
-          <Notice title="A few things to complete">{issues.join("\n")}</Notice>
-        )}
-        <View style={{ flexDirection: "row", gap: 12 }}>
-          {(d.step > 0 || d.detailsSection !== "personal") && (
-            <View style={{ flex: 1 }}>
-              <Button
-                secondary
-                title="Back"
-                onPress={() => {
-                  if (d.step === 0) {
-                    setShowErrors(false);
-                    set(
-                      "detailsSection",
-                      d.detailsSection === "family" ? "contact" : "personal",
-                    );
-                    scroll.current?.scrollTo({ y: 0, animated: false });
-                  } else go(d.step - 1);
-                }}
-              />
+          </Card>
+          {!allIssues.length && (
+            <View
+              style={{
+                padding: 18,
+                borderRadius: 18,
+                backgroundColor: C.successBg,
+                gap: 8,
+              }}
+            >
+              <Icon name="checkmark-circle" color={C.green} />
+              <Title>Your checklist is reviewed</Title>
+              <Body>
+                When registration opens, complete the official entry form and
+                keep its confirmation. Preparing here does not submit an entry.
+              </Body>
             </View>
           )}
-          {d.step < 2 && (
-            <View style={{ flex: 2 }}>
-              <Button
-                testID="apply-continue"
-                title="Continue"
-                icon="arrow-forward"
-                onPress={() => {
-                  Keyboard.dismiss();
-                  if (issues.length) {
-                    setShowErrors(true);
-                    return;
-                  }
-                  if (d.step === 0) {
-                    if (d.detailsSection !== "family") {
-                      setShowErrors(false);
-                      set(
-                        "detailsSection",
-                        d.detailsSection === "personal" ? "contact" : "family",
-                      );
-                      scroll.current?.scrollTo({ y: 0, animated: false });
-                      return;
-                    }
-                    const incomplete = (
-                      ["personal", "contact", "family"] as const
-                    ).find((section) => detailsIssues(d, section).length);
-                    if (incomplete) {
-                      set("detailsSection", incomplete);
-                      setShowErrors(true);
-                      scroll.current?.scrollTo({ y: 0, animated: false });
-                      return;
-                    }
-                  }
-                  go(d.step + 1);
-                }}
-              />
-            </View>
-          )}
-        </View>
-      </Card>
+          <Notice title="Submit on the official website">
+            The government website handles submission, verification and any
+            required payment. This app is an independent preparation tool.
+          </Notice>
+          <Button
+            secondary
+            title="Save an existing confirmation"
+            icon="bookmark-outline"
+            onPress={addEntry}
+          />
+        </>
+      )}
+      {showErrors && Object.keys(errors).length > 0 && (
+        <Notice title="A few things to complete">
+          We highlighted what needs your attention.
+        </Notice>
+      )}
       <Text style={[s.small, { textAlign: "center" }]}>
         Independent preparation tool · Not affiliated with the U.S. government
       </Text>

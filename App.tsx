@@ -12,14 +12,21 @@ import {
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
+import { preparationProgress } from "./expo-app/preparation";
 import { APP_NAME, BrandMark } from "./expo-app/Brand";
 import { HomeScreen, GuideContent } from "./expo-app/HomeScreen";
 import { ApplyScreen } from "./expo-app/ApplyScreen";
 import { PhotosScreen, removePhotoFile } from "./expo-app/PhotosScreen";
 import { EntriesScreen } from "./expo-app/EntriesScreen";
-import { RegistrationAlerts, useRegistrationFeed } from "./expo-app/AlertPreferences";
+import {
+  RegistrationAlerts,
+  useRegistrationFeed,
+} from "./expo-app/AlertPreferences";
 import { registrationSummary } from "./expo-app/registrationAlerts";
-import { cancelRegistrationReminder, listenForRegistrationReminder } from "./expo-app/registrationReminders";
+import {
+  cancelRegistrationReminder,
+  listenForRegistrationReminder,
+} from "./expo-app/registrationReminders";
 import { WelcomeTour } from "./expo-app/WelcomeTour";
 import { clearPassportCache } from "./expo-app/PassportCapture";
 import {
@@ -49,12 +56,28 @@ import {
   s,
 } from "./expo-app/ui";
 
-const tabs: { name: Tab; icon: IconName; selected: IconName }[] = [
-  { name: "Home", icon: "home-outline", selected: "home" },
-  { name: "Apply", icon: "document-text-outline", selected: "document-text" },
-  { name: "Photos", icon: "camera-outline", selected: "camera" },
-  { name: "My Entries", icon: "albums-outline", selected: "albums" },
-];
+const tabs: { name: Tab; label: string; icon: IconName; selected: IconName }[] =
+  [
+    { name: "Home", label: "Home", icon: "home-outline", selected: "home" },
+    {
+      name: "Apply",
+      label: "Prepare",
+      icon: "document-text-outline",
+      selected: "document-text",
+    },
+    {
+      name: "Photos",
+      label: "Photos",
+      icon: "camera-outline",
+      selected: "camera",
+    },
+    {
+      name: "My Entries",
+      label: "Entries",
+      icon: "albums-outline",
+      selected: "albums",
+    },
+  ];
 
 function DVApp() {
   const insets = useSafeAreaInsets();
@@ -75,6 +98,7 @@ function DVApp() {
   const [welcome, setWelcome] = useState(false);
   const replayAfterSettings = useRef(false);
   const [addRequest, setAddRequest] = useState(0);
+  const [scanRequest, setScanRequest] = useState(0);
   const load = () => {
     setLoadError("");
     void Promise.all([loadRecords(), shouldShowWelcome()])
@@ -83,7 +107,9 @@ function DVApp() {
         setWelcome(showWelcome);
         setRecords(data);
       })
-      .catch((e) => setLoadError(e.message || "Saved data could not be read."));
+      .catch(() =>
+        setLoadError("We couldn’t open your saved information. Please try again."),
+      );
   };
   useEffect(load, []);
   useEffect(() => {
@@ -114,7 +140,26 @@ function DVApp() {
       });
   };
   const apply = () => {
-    update((r) => ({ ...r, draft: { ...r.draft, started: true } }));
+    update((r) => {
+      const next = preparationProgress(r);
+      return {
+        ...r,
+        draft: {
+          ...r.draft,
+          started: true,
+          step: next.step,
+          detailsSection: next.section,
+        },
+      };
+    });
+    setTab("Apply");
+  };
+  const scan = () => {
+    update((r) => ({
+      ...r,
+      draft: { ...r.draft, started: true, step: 0, detailsSection: "personal" },
+    }));
+    setScanRequest((v) => v + 1);
     setTab("Apply");
   };
   const addEntry = () => {
@@ -211,7 +256,7 @@ function DVApp() {
           <>
             <ActivityIndicator size="small" color={C.navy} />
             <Text style={[s.body, { textAlign: "center" }]}>
-              Opening your saved entries…
+              Prepare · Track · Remember
             </Text>
           </>
         )}
@@ -236,15 +281,15 @@ function DVApp() {
             flexDirection: "row",
             alignItems: "center",
             paddingHorizontal: 20,
-            paddingBottom: 15,
+            paddingBottom: 12,
             gap: 11,
           }}
         >
-          <BrandMark />
+          <BrandMark size={36} />
           <View style={{ flex: 1, gap: 3 }}>
             <Text
               style={{
-                fontSize: 20,
+                fontSize: 18,
                 color: C.navy,
                 fontWeight: "700",
                 letterSpacing: -0.5,
@@ -270,7 +315,12 @@ function DVApp() {
             accessibilityLabel="Open settings"
             onPress={() => setSettings(true)}
             hitSlop={12}
-            style={{ padding: 7 }}
+            style={{
+              width: 44,
+              height: 44,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
           >
             <Icon name="settings-outline" size={24} color={C.blue} />
           </Pressable>
@@ -282,6 +332,7 @@ function DVApp() {
           alerts={() => setAlerts(true)}
           registrationStatus={registrationSummary(alertStatus.feed)}
           apply={apply}
+          scan={scan}
           photos={() => setTab("Photos")}
           entries={() => setTab("My Entries")}
           guide={() => setGuide(true)}
@@ -293,6 +344,7 @@ function DVApp() {
           update={update}
           photos={() => setTab("Photos")}
           addEntry={addEntry}
+          scanRequest={scanRequest}
         />
       )}
       {tab === "Photos" && <PhotosScreen records={records} update={update} />}
@@ -302,6 +354,7 @@ function DVApp() {
           update={update}
           addRequest={addRequest}
           consumeAddRequest={() => setAddRequest(0)}
+          onPrepare={apply}
         />
       )}
       <View
@@ -328,7 +381,7 @@ function DVApp() {
               key={item.name}
               accessibilityRole="tab"
               accessibilityState={{ selected: item.name === tab }}
-              accessibilityLabel={item.name}
+              accessibilityLabel={item.label}
               testID={`tab-${item.name.replace(" ", "-").toLowerCase()}`}
               onPress={() => setTab(item.name)}
               style={{
@@ -338,22 +391,22 @@ function DVApp() {
                 alignItems: "center",
                 justifyContent: "center",
                 gap: 4,
-                backgroundColor: item.name === tab ? "#EAF0F8" : "transparent",
+                backgroundColor: item.name === tab ? C.blueSoft : "transparent",
               }}
             >
               <Icon
                 name={item.name === tab ? item.selected : item.icon}
                 size={23}
-                color={item.name === tab ? C.navy : C.muted}
+                color={item.name === tab ? C.blue : C.muted}
               />
               <Text
                 style={{
                   fontSize: 11,
                   fontWeight: item.name === tab ? "700" : "500",
-                  color: item.name === tab ? C.navy : C.muted,
+                  color: item.name === tab ? C.blue : C.muted,
                 }}
               >
-                {item.name}
+                {item.label}
               </Text>
             </Pressable>
           ))}
@@ -391,32 +444,40 @@ function DVApp() {
             setSettings(false);
           }}
         />
-        <Button secondary title="Registration alerts" icon="notifications-outline"
-          onPress={() => { alertsAfterSettings.current = true; setSettings(false); }} />
+        <Button
+          secondary
+          title="Registration alerts"
+          icon="notifications-outline"
+          onPress={() => {
+            alertsAfterSettings.current = true;
+            setSettings(false);
+          }}
+        />
         <Card>
           <BrandMark size={58} />
-          <Label>{APP_NAME} · Expo preview 0.1</Label>
+          <Label>{APP_NAME}</Label>
           <Title>Made for your next chapter.</Title>
           <Body>
             An independent iPhone and iPad companion for preparing DV entries,
             organizing photos and keeping your own case history.
           </Body>
           <Notice title="Official actions happen on the government website">
-            This preview does not submit entries, collect government fees,
-            certify photos or retrieve official status automatically.
+            This app does not submit entries, collect government fees, certify
+            photos or retrieve official status automatically.
           </Notice>
         </Card>
         <Card>
-          <Title>Your data in this preview</Title>
+          <Title>Your information stays with you</Title>
           <Body>
-            Draft details and entry records are stored with iOS Keychain through
-            Expo SecureStore. Photo copies are kept in the Expo app’s local
-            storage. There is no account or cloud sync for those records. If you request an email alert, only your email and consent are sent to Green Card Application Services through its Google service.
+            Your draft and entry records are saved securely on this device.
+            Photos are kept in the app’s local storage. No account or cloud sync
+            is required. Optional email alerts share only your email and consent
+            with Green Card Application Services through its Google service.
           </Body>
           <Body muted>
-            Expo Go is a development preview. Its storage and system permissions
-            are managed by Expo Go. Keep official confirmation pages separately
-            and use fictional details while testing.
+            Keep a separate copy of your official confirmation. Uninstalling the
+            app or switching devices may make local records unavailable. Use
+            fictional details while testing this beta.
           </Body>
         </Card>
         <Card>
@@ -443,7 +504,11 @@ function DVApp() {
           onPress={clear}
         />
       </Sheet>
-      <RegistrationAlerts visible={alerts && !welcome && !settings && !guide} onClose={() => setAlerts(false)} status={alertStatus} />
+      <RegistrationAlerts
+        visible={alerts && !welcome && !settings && !guide}
+        onClose={() => setAlerts(false)}
+        status={alertStatus}
+      />
       {welcome && <WelcomeTour onExit={closeWelcome} />}
     </View>
   );

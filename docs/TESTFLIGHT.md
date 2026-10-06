@@ -100,6 +100,23 @@ check passed on iPhone 15 and iPad Air with no failures or skips, and captured
 screenshots were reviewed. The same non-blocking dependency dSYM warnings from
 the first upload remain. No application logic or data schema was changed.
 
+## Consumer UI and form experience — build 3
+
+Version `0.1.0 (3)` contains the Home next-action dashboard, shared premium visual
+system, grouped forms with first-error scroll/focus, native iOS input hints and
+keyboard navigation, compact passport review and country normalization, and
+refined photo/entry review screens. Storage keys, record schemas, production
+services, app identifier, and signing configuration remain unchanged.
+
+The existing gold artwork remains provisional until the owner supplies its new
+replacement. It is centrally wired and can be replaced without editing screens.
+
+For simulator checks, build the Release app with simulator signing enabled
+(`CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=-`). Installing an unsigned
+simulator build can make iOS Keychain access fail with a missing-entitlement
+error. This is separate from the unsigned **device archive** used for the
+existing App Store export workflow; export supplies its distribution signature.
+
 ## Beta test notes
 
 No signup is required. Please test:
