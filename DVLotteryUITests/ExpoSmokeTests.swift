@@ -130,10 +130,14 @@ final class ExpoSmokeTests: XCTestCase {
         app.buttons["passport-upload"].tap()
         XCTAssertTrue(app.buttons["Cancel"].waitForExistence(timeout: 5), app.debugDescription)
         app.buttons["Cancel"].tap()
-        XCTAssertTrue(app.buttons["passport-upload"].waitForExistence(timeout: 5))
+        let pickerDismissed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: app.buttons["Cancel"])
+        XCTAssertEqual(XCTWaiter.wait(for: [pickerDismissed], timeout: 5), .completed)
+        let readyAfterCancel = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == true AND enabled == true AND hittable == true"), object: app.buttons["passport-upload"])
+        XCTAssertEqual(XCTWaiter.wait(for: [readyAfterCancel], timeout: 5), .completed)
         app.buttons["passport-upload"].tap()
+        XCTAssertTrue(app.buttons["Cancel"].waitForExistence(timeout: 10), "The native picker must present again after cancellation.")
         let photo = app.images.matching(NSPredicate(format: "label BEGINSWITH 'Photo' OR label BEGINSWITH 'Screenshot'")).firstMatch
-        XCTAssertTrue(photo.waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertTrue(photo.waitForExistence(timeout: 30), app.debugDescription)
         photo.tap()
         XCTAssertTrue(app.staticTexts.matching(identifier: "Review your passport").firstMatch.waitForExistence(timeout: 20), app.debugDescription)
         XCTAssertTrue(app.staticTexts.matching(identifier: "Passport recognized").firstMatch.exists)
@@ -159,14 +163,10 @@ final class ExpoSmokeTests: XCTestCase {
         XCTAssertTrue(app.buttons["passport-upload"].waitForExistence(timeout: 5))
 
         let birth = app.textFields["Date of birth"]
-        scrollTo(birth, in: app)
-        birth.tap()
-        birth.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 10) + "02/04/1987")
+        replaceText(birth, with: "02/04/1987", in: app)
         let city = app.textFields["City of birth"]
-        scrollTo(city, in: app)
-        city.tap()
-        let existingCity = city.value as? String ?? ""
-        city.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: existingCity.count) + "Testville\n")
+        replaceText(city, with: "Testville", in: app)
+        city.typeText("\n")
         let country = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Country of birth:")).firstMatch
         scrollTo(country, in: app)
         country.tap()
@@ -174,6 +174,8 @@ final class ExpoSmokeTests: XCTestCase {
         let canada = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Canada")).firstMatch
         XCTAssertTrue(canada.waitForExistence(timeout: 5))
         canada.tap()
+        // Begin away from the missing field so this proves automatic scrolling.
+        scrollTo(app.textFields["First / given name"], in: app)
         // Continue must take the user straight to the missing education field.
         // There is deliberately no scroll helper between Continue and these assertions.
         let next = app.buttons["apply-continue"]
@@ -220,7 +222,11 @@ final class ExpoSmokeTests: XCTestCase {
         app.descendants(matching: .any).matching(identifier: "tab-apply").firstMatch.tap()
         openPreparationSection("contact", in: app)
         let labels = ["Email address", "Phone number (optional)", "In care of (optional)", "Address line 1", "Address line 2 (optional)"]
-        let originals = Dictionary(uniqueKeysWithValues: labels.map { ($0, app.textFields[$0].value as? String ?? "") })
+        let originals = Dictionary(uniqueKeysWithValues: labels.map { label in
+            let field = app.textFields[label]
+            let value = field.value as? String ?? ""
+            return (label, value == field.placeholderValue ? "" : value)
+        })
         // Restore only fields touched by this test. Never reset the app, draft, photos or existing entries.
         defer {
             if app.buttons["Close"].exists { app.buttons["Close"].tap() }
@@ -230,6 +236,9 @@ final class ExpoSmokeTests: XCTestCase {
             for label in labels { replaceText(app.textFields[label], with: originals[label] ?? "", in: app) }
             dismissKeyboardBeforeNavigation(app)
             home.tap()
+        }
+        for label in ["Phone number (optional)", "In care of (optional)", "Address line 2 (optional)"] {
+            replaceText(app.textFields[label], with: "", in: app)
         }
         let email = app.textFields["Email address"]
         replaceText(email, with: "", in: app)
@@ -245,22 +254,23 @@ final class ExpoSmokeTests: XCTestCase {
 
         let token = String(UUID().uuidString.replacingOccurrences(of: "-", with: "").prefix(12)).uppercased()
         let fixtureEmail = "uitest.\(token.lowercased())@example.com"
-        email.typeText(fixtureEmail + "\n")
+        typeFixtureText(fixtureEmail, into: email)
+        XCTAssertEqual(email.value as? String, fixtureEmail)
+        email.typeText("\n")
         XCTAssertFalse(emailError.exists)
         let phone = app.textFields["Phone number (optional)"]
-        let phoneBefore = originals["Phone number (optional)"] ?? ""
-        app.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: phoneBefore.count) + "2025550199")
+        typeFixtureText("2025550199", into: app)
         XCTAssertEqual(phone.value as? String, "2025550199", "Email Next should move input to the phone field.")
         let keyboardNext = app.buttons["Next field"]
         XCTAssertTrue(keyboardNext.isHittable, "The phone keypad needs a native Next accessory.")
         keyboardNext.tap()
         let careOf = app.textFields["In care of (optional)"]
-        app.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: (originals["In care of (optional)"] ?? "").count) + "UI Fixture")
+        typeFixtureText("UI Fixture", into: app)
         XCTAssertEqual(careOf.value as? String, "UI Fixture")
         let address = app.textFields["Address line 1"]
         replaceText(address, with: "123 Example Street", in: app)
         address.typeText("\n")
-        app.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: (originals["Address line 2 (optional)"] ?? "").count) + "Unit 4")
+        typeFixtureText("Unit 4", into: app)
         XCTAssertEqual(app.textFields["Address line 2 (optional)"].value as? String, "Unit 4", "Address Next should move to address line 2.")
         screenshot("Premium-Contact-Keyboard")
         dismissKeyboardBeforeNavigation(app)
@@ -332,7 +342,7 @@ final class ExpoSmokeTests: XCTestCase {
         XCTAssertFalse(app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", fixtureName + ", DV")).firstMatch.exists)
     }
 
-    /// Use a dedicated simulator with only the fictional passport PNG in Photos.
+    /// Use a dedicated simulator with the fictional passport PNG seeded in Photos.
     /// The fixture exercises file preparation only; it is not a valid DV portrait.
     @MainActor func testPremiumPhotoLibraryReview() throws {
         continueAfterFailure = false
@@ -358,7 +368,7 @@ final class ExpoSmokeTests: XCTestCase {
             if springboard.buttons[label].waitForExistence(timeout: 1) { springboard.buttons[label].tap(); break }
         }
         let fixture = app.images.matching(NSPredicate(format: "label BEGINSWITH 'Photo' OR label BEGINSWITH 'Screenshot'")).firstMatch
-        if fixture.waitForExistence(timeout: 5) {
+        if fixture.waitForExistence(timeout: 30) {
             fixture.tap()
         } else {
             // UIImagePickerController (editing enabled) exposes its grid as cells
@@ -417,12 +427,29 @@ final class ExpoSmokeTests: XCTestCase {
         XCTAssertTrue(export.isHittable, "A prepared JPEG must remain exportable from review.")
         // Do not choose any share destination or transmit the fixture externally.
         export.tap()
-        let activity = app.buttons.matching(NSPredicate(format: "label == 'Copy' OR label == 'Save Image' OR label == 'Save to Files'")).firstMatch
+        let activityList = app.otherElements.matching(identifier: "ActivityListView").firstMatch
+        let activity = app.cells.matching(NSPredicate(format: "label == 'Copy' OR label == 'Save Image' OR label == 'Save to Files'")).firstMatch
         XCTAssertTrue(activity.waitForExistence(timeout: 5), app.debugDescription)
         screenshot("Premium-Photo-Export-Sheet")
-        let shareClose = app.buttons.matching(identifier: "Close").allElementsBoundByIndex.last { $0.isHittable }
-        XCTAssertNotNil(shareClose, "The native share sheet must be dismissible without sharing.")
-        shareClose?.tap()
+        let dismissRegion = app.otherElements.matching(identifier: "PopoverDismissRegion").firstMatch
+        let shareClose = activityList.buttons.matching(identifier: "Close").firstMatch
+        if dismissRegion.exists {
+            // The observed iOS share UI is a popover with an explicit outside-dismiss region.
+            // Tap above its frame, never on an activity/destination.
+            let collection = app.collectionViews.matching(identifier: "activityCollectionView").firstMatch
+            let outsideY = max(app.frame.minY + 30, collection.frame.minY - 30)
+            app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: app.frame.width / 2, dy: outsideY - app.frame.minY)).tap()
+        } else if shareClose.exists && shareClose.isHittable {
+            shareClose.tap()
+        } else {
+            let collection = app.collectionViews.matching(identifier: "activityCollectionView").firstMatch
+            XCTAssertTrue(collection.exists, app.debugDescription)
+            let origin = app.coordinate(withNormalizedOffset: .zero)
+            origin.withOffset(CGVector(dx: collection.frame.midX, dy: collection.frame.minY + 8)).press(forDuration: 0.1,
+                thenDragTo: origin.withOffset(CGVector(dx: collection.frame.midX, dy: app.frame.maxY - 20)))
+        }
+        let exportDismissed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: activityList)
+        XCTAssertEqual(XCTWaiter.wait(for: [exportDismissed], timeout: 5), .completed)
         XCTAssertTrue(app.staticTexts.matching(identifier: "Your photo review").firstMatch.waitForExistence(timeout: 5))
         // The current sheet is the newly prepended fixture, never an existing photo.
         let delete = app.buttons["Delete photo"]
@@ -496,11 +523,8 @@ final class ExpoSmokeTests: XCTestCase {
         } else {
             // The production scroll views use keyboardDismissMode=on-drag.
             // This is navigation cleanup, never used to reveal a validation error.
-            let scroll = app.scrollViews.firstMatch
-            if scroll.exists {
-                scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.85, dy: 0.7))
-                    .press(forDuration: 0.1, thenDragTo: scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.85, dy: 0.45)))
-            }
+            dragVisibleScroll(in: app, downward: false)
+
         }
         let gone = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: app.keyboards.firstMatch)
         XCTAssertEqual(XCTWaiter.wait(for: [gone], timeout: 5), .completed, "Dismiss the keyboard before using the bottom tabs.")
@@ -513,9 +537,7 @@ final class ExpoSmokeTests: XCTestCase {
             guard label.exists else { return false }
             let frame = label.frame
             guard frame.width > 0 && frame.height > 0 else { return false }
-            var viewport = app.frame
-            let scroll = app.scrollViews.firstMatch
-            if scroll.exists { viewport = viewport.intersection(scroll.frame) }
+            let viewport = self.visibleScrollFrame(in: app)
             let keyboard = app.keyboards.firstMatch
             var bottom = viewport.maxY
             if keyboard.exists { bottom = min(bottom, keyboard.frame.minY) }
@@ -538,11 +560,38 @@ final class ExpoSmokeTests: XCTestCase {
         sectionButton.tap()
     }
 
+    @MainActor private func typeFixtureText(_ text: String, into element: XCUIElement) {
+        // XCTest can inject a replacement burst before a controlled input has
+        // committed its clear event. Separate key events wait for the app to idle
+        // and exercise ordinary typing without silently accepting dropped letters.
+        for character in text { element.typeText(String(character)) }
+    }
+
     @MainActor private func replaceText(_ field: XCUIElement, with text: String, in app: XCUIApplication) {
         scrollTo(field, in: app)
         field.tap()
         let current = field.value as? String ?? ""
-        field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: current.count + 1) + text)
+        if !current.isEmpty && current != field.placeholderValue {
+            // A trailing tap places the caret at the displayed end. For a
+            // horizontally scrolled long value, retry against any suffix left
+            // after clearing its visible prefix. No keyboard shortcut or
+            // editing-menu timing is assumed; the exact empty guard remains.
+            for _ in 0..<3 {
+                let remaining = field.value as? String ?? ""
+                if remaining.isEmpty || remaining == field.placeholderValue { break }
+                field.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).tap()
+                for _ in remaining { field.typeText(XCUIKeyboardKey.delete.rawValue) }
+            }
+            let cleared = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                let actual = field.value as? String ?? ""
+                return actual.isEmpty || actual == field.placeholderValue
+            }, object: nil)
+            XCTAssertEqual(XCTWaiter.wait(for: [cleared], timeout: 3), .completed, "The test fixture must clear the complete value: \(field.value ?? "nil")")
+        }
+        typeFixtureText(text, into: field)
+        if !text.isEmpty {
+            XCTAssertEqual(field.value as? String ?? "", text, "The test fixture must replace the entire field value.")
+        }
     }
 
     @MainActor private func waitUntilHittable(_ element: XCUIElement, timeout: TimeInterval = 5) -> Bool {
@@ -550,14 +599,36 @@ final class ExpoSmokeTests: XCTestCase {
         return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
     }
 
+    @MainActor private func visibleScrollFrame(in app: XCUIApplication) -> CGRect {
+        let keyboard = app.keyboards.firstMatch
+        let keyboardTop = keyboard.exists ? keyboard.frame.minY : app.frame.maxY
+        // iOS's prediction/accessory bar also exposes a 44pt ScrollView.
+        // Choose the largest visible content viewport, never that system bar.
+        let candidates = app.scrollViews.allElementsBoundByIndex.map { scroll -> CGRect in
+            var frame = scroll.frame.intersection(app.frame)
+            frame.size.height = max(0, min(frame.maxY, keyboardTop) - frame.minY)
+            return frame
+        }.filter { !$0.isNull && $0.width > 0 && $0.height > 44 }
+        return candidates.max(by: { $0.width * $0.height < $1.width * $1.height }) ?? .zero
+    }
+
+    @MainActor private func dragVisibleScroll(in app: XCUIApplication, downward: Bool) {
+        let viewport = visibleScrollFrame(in: app)
+        XCTAssertGreaterThan(viewport.height, 44, "A visible scroll region is needed to navigate the form.")
+        let origin = app.coordinate(withNormalizedOffset: .zero)
+        let x = viewport.midX - app.frame.minX
+        let startY = viewport.minY + viewport.height * (downward ? 0.2 : 0.8) - app.frame.minY
+        let endY = viewport.minY + viewport.height * (downward ? 0.8 : 0.2) - app.frame.minY
+        origin.withOffset(CGVector(dx: x, dy: startY)).press(forDuration: 0.1,
+            thenDragTo: origin.withOffset(CGVector(dx: x, dy: endY)))
+    }
+
     @MainActor private func scrollTo(_ element: XCUIElement, in app: XCUIApplication) {
         for _ in 0..<15 {
             if element.exists && element.isHittable { return }
-            let above = element.exists && element.frame.maxY < 170
-            let keyboard = app.keyboards.firstMatch.exists
-            let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: above ? 0.35 : keyboard ? 0.55 : 0.72))
-            let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: above ? 0.7 : 0.25))
-            start.press(forDuration: 0.1, thenDragTo: end)
+            let viewport = visibleScrollFrame(in: app)
+            let above = element.exists && element.frame.maxY < viewport.minY + 8
+            dragVisibleScroll(in: app, downward: above)
         }
         XCTAssertTrue(element.isHittable, app.debugDescription)
     }

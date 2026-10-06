@@ -11,6 +11,7 @@ SwiftUI prototype and must not be used for this upload.
 - Apple Developer team: `ZDK3K9BT5S`
 - First beta: version `0.1.0`, build `1`
 - Gold DV logo refresh: version `0.1.0`, build `2`
+- Consumer UI and form experience: version `0.1.0`, build `3`
 - App Store Connect app ID: `6819749953`
 
 `app.json` is the source of truth for the team and version. Increment
@@ -110,6 +111,23 @@ services, app identifier, and signing configuration remain unchanged.
 
 The existing gold artwork remains provisional until the owner supplies its new
 replacement. It is centrally wired and can be replaced without editing screens.
+
+The production archive and standalone simulator Release build passed, along
+with TypeScript, 38 application/service tests, native passport/education,
+contact/keyboard/resume, photo, entry/timeline and responsive screen checks.
+Runtime source is commit `11b74c3`; subsequent validation commits contain only
+test harness refinements, documentation and captured screenshots.
+
+The October 6 export attempt was blocked before upload by Xcode reporting
+`No Account for Team "ZDK3K9BT5S"` and no matching local distribution certificate.
+Xcode's account UI shows the same account-access error and requests sign-in.
+Restore the existing Apple account session, then retry the established automatic
+export workflow; do not replace signing infrastructure or create a new app.
+Build 3 is **not yet uploaded or assigned to Internal Testing**.
+
+The verified archive is retained at
+`~/Library/Developer/DVLotteryTracker/TestFlight-0.1.0-3/DVLotteryTracker-unsigned.xcarchive`,
+alongside `UploadOptions.plist` and `upload.log`.
 
 For simulator checks, build the Release app with simulator signing enabled
 (`CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=-`). Installing an unsigned

@@ -177,6 +177,36 @@ branding remains centrally wired through `assets/branding/` and `BrandMark`.
   the standalone iPhone 15 Release app. The first small-device attempt timed out
   while launching; a warm launch and the final retry passed without changing
   deployment targets or signing configuration.
+- The native photo-library workflow passed in the standalone iPhone 15 Release
+  app: picker/crop, preview, required capture-date and review validation,
+  saving, manual review, native JPEG share-sheet presentation/dismissal, and
+  removal of the test's own photo. The test used simulator sample media and
+  fictional person details; no photo was sent to a share destination. The
+  passing target is `testPremiumPhotoLibraryReview` in
+  `build/Premium-Workflows.xcresult` (the other two targets in that earlier run
+  failed on test-input handling and were rerun separately).
+- The passport and personal-details regression target passed in
+  `build/Premium-Forms-Native.xcresult`: cancel/reopen the native picker, real
+  Apple Vision recognition of a fictional ICAO specimen, compact review and
+  optional editing, explicit replacement confirmation, manual date/birthplace
+  entry, and the missing-education case. The test deliberately scrolls away
+  from education before pressing Continue, verifies the control and inline
+  message become visible automatically, corrects it, and reaches Contact.
+  The contact target in that same bundle failed on native test text selection
+  and was rerun separately.
+- The final contact/entry target passed with zero failures or skips in
+  `build/Premium-Home-Verified.xcresult`. It verifies automatic email error
+  focus and visible inline guidance, email-to-phone Next, the phone keypad's
+  Next accessory, address Next, exact saved values after terminate/relaunch,
+  entry empty state, entry creation, first missing submission attestation,
+  timeline attestation/update, and cleanup of its uniquely named fictional
+  entry. Original contact values are restored. No official entry or real
+  email request was submitted.
+- The native test helpers handle iOS text selection/cursor placement, React
+  Native's duplicate static-text accessibility nodes, and the keyboard's
+  separate prediction-bar scroll view. Earlier harness failures were corrected
+  without changing production logic; field values and inline visibility remain
+  explicitly asserted.
 
 Simulator UI results and release upload details are recorded after verification
 in `docs/TESTFLIGHT.md`. Physical-camera quality, tactile haptic feel, contact
