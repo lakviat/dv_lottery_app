@@ -1,7 +1,0 @@
-Mode: built-in image generation, edit of the user-selected Eagle concept.
-
-Use case: precise-object-edit.
-Asset type: production iOS app icon for DV Lottery Tracker.
-Input image: the selected Eagle icon is the edit target; preserve its exact central eagle drawing and flag design.
-Primary request: convert this icon preview into a full-bleed square app-icon master. Remove all pale outer margin, external background and rounded-square clipping. The square canvas must be filled edge to edge by the actual icon artwork, with perfectly square corners: extend the navy upper background into the top corners and the red/white lower stripes into the bottom corners. No rounded outer corners because iOS adds its own mask.
-Preserve the five large white stars, the large centered navy circle with white rim, the same white eagle silhouette looking right, its wings, tail and proportions, the red and white vertical stripes and the original dark navy colors. Match the chosen icon faithfully. Scale the selected rounded-square icon artwork to fill this new square canvas while keeping all stars and circular badge fully inside it with natural breathing room. Minimal satin finish as in the reference. No new design, text, initials, watermark, border, mockup or presentation surface. Opaque square artwork only.

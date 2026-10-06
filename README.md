@@ -8,9 +8,9 @@ For standalone iOS beta builds, see [TestFlight setup and test notes](docs/TESTF
 
 ## App branding
 
-**DV Lottery Tracker** uses the approved eagle, stars and stripes artwork on the home-screen icon, launch screen, opening state, app header, welcome tour and About screen. The original SwiftUI prototype shares the artwork and display name, including its privacy cover.
+**DV Lottery Tracker** uses the approved gold DV medallion over a dark American flag on the home-screen icon, launch screen, opening state, app header, welcome tour and About screen. The original SwiftUI prototype shares the artwork and display name, including its privacy cover.
 
-- `assets/branding/icon-source.png`: production master adapted from the selected concept using built-in image generation; its exact edit prompt is in `assets/branding/generation-prompt.txt`.
+- `assets/branding/icon-source.png`: the user-supplied 1024 × 1024 master with an embedded sRGB profile; artwork provenance and export instructions are in `assets/branding/README.md`.
 - `assets/branding/icon.png`: opaque 1024 × 1024 app icon. iOS applies the corner mask.
 - `assets/branding/mark.png`: transparent rounded mark used within the app and by `expo-splash-screen`.
 - Run `swift scripts/generate_icon.swift` from the repository root to export all Expo and SwiftUI asset copies from the master.
