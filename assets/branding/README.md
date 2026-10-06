@@ -1,9 +1,12 @@
 # Approved app artwork
 
-The master is the full-square gold DV medallion and dark American flag image
-provided and approved by the user on October 6, 2026. It replaces the earlier
-eagle design. The original artwork was imported directly, without redrawing or
-AI regeneration. Its untagged RGB pixels were assigned the sRGB color profile.
+The master uses the user's approved white eagle, five stars and open circular
+ring over navy and red-and-white stripes. It replaces the gold DV medallion.
+With the user's authorization, the built-in image editing tool removed the
+charcoal mockup margin and outer shadow, then extended the artwork to a full-bleed
+square without baked outer rounded corners. The exact editing prompt is saved
+in `EDIT_PROMPT.txt`. The resulting master is an opaque 1024 × 1024 PNG with an
+embedded sRGB profile.
 
 - `icon-source.png`: 1024 × 1024 opaque PNG master, tagged sRGB.
 - `icon.png`: 1024 × 1024 opaque sRGB app icon; iOS applies the outer mask.
@@ -11,18 +14,22 @@ AI regeneration. Its untagged RGB pixels were assigned the sRGB color profile.
 
 Run `swift scripts/generate_icon.swift` from the repository root to regenerate
 the Expo assets and matching SwiftUI `AppIcon`/`BrandIcon` asset copies. Preserve
-the medallion, flag, proportions, and existing internal highlights and shadows.
-No additional outer margin or shadow should be added.
+the eagle, five stars, open ring, stripe arrangement and proportions. Do not add
+an outer margin, shadow or rounded corners to the app-icon master; iOS supplies
+the icon mask. The exporter rounds only the in-app/launch mark.
+
+The generated Expo `ios/` directory has a separate native AppIcon and splash
+image set. Regenerate it through the existing Expo prebuild workflow after
+exporting the assets; the Swift exporter does not update generated `ios/` files.
 
 The shared Expo `BrandMark` supplies the app header, loading state, welcome tour,
 and About screen. `expo-splash-screen` uses the same mark. SwiftUI uses `BrandIcon`
 in its header, About screen, privacy cover, and launch storyboard.
 
-## Next artwork
+## Future artwork updates
 
-The consumer UI overhaul uses the current image provisionally. A replacement icon
-has been requested by the owner but has not yet been supplied. Keep the shared
-asset paths stable: replace `icon-source.png` with the approved full-bleed,
+Keep the shared asset paths stable: replace `icon-source.png` with an approved full-bleed,
 1024 × 1024 opaque sRGB PNG, then run `swift scripts/generate_icon.swift`.
-This updates the Expo/native AppIcon and the shared header, onboarding and loading
-mark together. Keep the independent-app disclaimer; do not add a government seal.
+Regenerate the Expo iOS assets before the next native build. This keeps the
+AppIcon, header, onboarding and loading artwork consistent. Keep the independent-app
+disclaimer and do not represent the artwork as an official government seal.

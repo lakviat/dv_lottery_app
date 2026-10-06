@@ -8,16 +8,17 @@ For standalone iOS beta builds, see [TestFlight setup and test notes](docs/TESTF
 
 ## App branding
 
-**DV Lottery Tracker** uses the approved gold DV medallion over a dark American flag on the home-screen icon, launch screen, opening state, app header, welcome tour and About screen. The original SwiftUI prototype shares the artwork and display name, including its privacy cover.
+**DV Lottery Tracker** uses the approved white eagle, five stars and open circular ring over navy and red-and-white stripes on the home-screen icon, launch screen, opening state, app header, welcome tour and About screen. The original SwiftUI prototype shares the artwork and display name, including its privacy cover.
 
-- `assets/branding/icon-source.png`: the user-supplied 1024 × 1024 master with an embedded sRGB profile; artwork provenance and export instructions are in `assets/branding/README.md`.
+- `assets/branding/icon-source.png`: the 1024 × 1024 opaque sRGB master, prepared from the user's artwork with the authorized removal of its surrounding mockup background and shadow; provenance and export instructions are in `assets/branding/README.md`.
 - `assets/branding/icon.png`: opaque 1024 × 1024 app icon. iOS applies the corner mask.
 - `assets/branding/mark.png`: transparent rounded mark used within the app and by `expo-splash-screen`.
 - Run `swift scripts/generate_icon.swift` from the repository root to export all Expo and SwiftUI asset copies from the master.
+- Regenerate the Expo iOS project through the existing prebuild workflow to refresh its generated native AppIcon and splash image sizes before building.
 
 Reload Expo Go to see the in-app branding. Installing a rebuilt iOS app is required to change the installed home-screen name/icon and native splash configuration. Expo Go retains its own home-screen icon. The Expo slug, iOS bundle identifiers and storage keys remain stable so existing drafts and saved records are retained when updating the same app. The native splash dismisses normally; no artificial loading delay has been added.
 
-Current logo previews from the standalone Release app: [iPhone 15](docs/screenshots/iphone15-gold-logo-welcome.png) and [iPad](docs/screenshots/ipad-gold-logo-welcome.png).
+Current logo previews from the standalone Release app: [iPhone 15](docs/screenshots/iphone15-eagle-welcome.png) and [iPad](docs/screenshots/ipad-eagle-welcome.png).
 
 ## Consumer experience
 
@@ -27,9 +28,8 @@ keyboard and sticky-action behavior across preparation and modal forms. Home
 uses the existing checklist rules to show progress and the next useful action.
 
 Country matching is bundled locally in `countryNormalization.ts`; scanning
-never infers birthplace or eligibility from nationality. The current logo is
-provisional pending the owner's replacement artwork; see
-[branding instructions](assets/branding/README.md).
+never infers birthplace or eligibility from nationality. The approved artwork
+uses shared assets across the app; see [branding instructions](assets/branding/README.md).
 
 ## Run in Expo Go
 

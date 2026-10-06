@@ -58,7 +58,7 @@ Drafts are not attached to a confirmed program year until an authoritative year/
 
 ## Visual direction
 
-Native SwiftUI; dark navy headings, a muted blue secondary color, restrained red, warm date notice, white cards on a cool background. The approved icon uses a gold DV medallion over a dark American flag. The same artwork appears in the Expo and SwiftUI apps and their launch screens, including the Expo welcome tour. Home uses an original passport illustration built in SwiftUI. On iPad the dashboard uses two columns while forms retain a readable width. All primary actions have text labels, and status is communicated through text as well as color.
+Native SwiftUI; dark navy headings, a muted blue secondary color, restrained red, warm date notice, white cards on a cool background. The approved icon uses a white eagle, five stars and an open circular ring over navy and red-and-white stripes. The full-bleed master has no outer mockup margin or shadow. The same artwork appears in the Expo and SwiftUI apps and their launch screens, including the Expo welcome tour and SwiftUI privacy cover. Home uses an original passport illustration built in SwiftUI. On iPad the dashboard uses two columns while forms retain a readable width. All primary actions have text labels, and status is communicated through text as well as color. The independent-app disclaimer remains visible; the branding does not imply government affiliation.
 
 ## Privacy and integration architecture
 
