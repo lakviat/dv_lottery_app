@@ -115,7 +115,7 @@ npx tsx scripts/assert_passport_ocr.ts build/passport-ocr-lines.json
 3. Press **Run**. No packages, server, or API keys are needed.
 4. For a physical device, select your Apple development team under Signing & Capabilities and use a unique bundle identifier if necessary. Camera capture requires a physical device.
 
-The checked-in project is ready to open. The optional `scripts/generate_project.rb` rebuilds it using the `xcodeproj` Ruby gem. `scripts/generate_icon.swift` renders the original flag icon from vector paths.
+The checked-in project is ready to open. The optional `scripts/generate_project.rb` rebuilds it using the `xcodeproj` Ruby gem. `scripts/generate_icon.swift` exports the approved raster artwork to the shared app-icon and in-app sizes.
 
 ## Original SwiftUI capabilities
 
@@ -127,7 +127,7 @@ The checked-in project is ready to open. The optional `scripts/generate_project.
 - Submitted-entry records with program year, masked confirmation number, duplicate protection, status-check details, and manual event timeline.
 - In-app Safari access to official entry, results, instructions, fee schedule, photo rules, passport rule, and visa bulletin.
 - Protected local files, exclusion from device/cloud backups, hidden app-switcher content, and local-data deletion.
-- Original U.S.-flag-inspired icon, adaptive iPad dashboard, empty states, and source-aware copy.
+- Shared approved eagle/flag artwork, adaptive iPad dashboard, empty states, and source-aware copy.
 
 ## Boundaries of this prototype
 

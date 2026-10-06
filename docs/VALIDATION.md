@@ -149,8 +149,8 @@ Implemented a shared navy/cobalt visual system, next-action Home dashboard,
 three-step orientation, grouped personal/contact/family inputs, sticky actions,
 field-level validation with scroll/focus and keyboard Next/Done, compact passport
 recognition review, canonical country matching, and photo/entry review sheets.
-The current artwork is temporary pending the user's replacement asset; all live
-branding remains centrally wired through `assets/branding/` and `BrandMark`.
+Branding remains centrally wired through `assets/branding/` and `BrandMark`;
+the approved eagle replacement is verified below.
 
 - TypeScript and 38 application/service tests passed, including field targeting,
   missing education, country aliases/codes, conservative passport autofill,
@@ -212,3 +212,32 @@ Simulator UI results and release upload details are recorded after verification
 in `docs/TESTFLIGHT.md`. Physical-camera quality, tactile haptic feel, contact
 suggestion availability, and exhaustive VoiceOver/Dynamic Type combinations
 remain device checks; simulator tests cannot certify them.
+
+## Approved eagle artwork — build 3
+
+Checked October 6, 2026, after the user authorized adjusting the supplied mockup.
+
+- Used the built-in image editor to remove the charcoal outer margin, shadow
+  and baked rounded tile while preserving the eagle, five stars, open ring and
+  navy/stripe design. The exact prompt is in `assets/branding/EDIT_PROMPT.txt`.
+- Exported an opaque 1024px sRGB app-icon master and a 512px sRGB in-app mark
+  with transparent rounded corners using the existing asset exporter. Expo
+  and SwiftUI copies match. Generated native icon and all three splash sizes
+  were inspected and show the new eagle without the old gold artwork.
+- TypeScript, the standalone simulator Release build and device Release
+  archive passed. The archive reports `com.dvlottery.expo`, version `0.1.0 (3)`,
+  contains `main.jsbundle`, and packages the exact current in-app mark bytes.
+- Native welcome-tour navigation/exit/replay and all five primary-screen
+  layout checks passed on iPhone 15 and iPad Air 11-inch (M4): four test runs,
+  zero failures and zero skips in `build/Eagle-Branding.xcresult`.
+- Current captured welcome previews are `docs/screenshots/iphone15-eagle-welcome.png`
+  and `docs/screenshots/ipad-eagle-welcome.png`.
+- The new archive's automatic signing/upload attempt stopped before upload
+  with Xcode's `No Account for Team "ZDK3K9BT5S"` error. Browser sign-in to
+  App Store Connect does not restore that separate Xcode session. Build 3
+  has not reached TestFlight; the ready archive and logs are retained at
+  `~/Library/Developer/DVLotteryTracker/TestFlight-0.1.0-3-eagle/`.
+
+Application logic, storage keys, bundle identifiers and data schemas were not
+changed by the artwork replacement. Physical-device launch timing remains a
+TestFlight check after Xcode sign-in is restored.

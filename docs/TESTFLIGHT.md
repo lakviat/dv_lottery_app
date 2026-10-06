@@ -11,7 +11,7 @@ SwiftUI prototype and must not be used for this upload.
 - Apple Developer team: `ZDK3K9BT5S`
 - First beta: version `0.1.0`, build `1`
 - Gold DV logo refresh: version `0.1.0`, build `2`
-- Consumer UI and form experience: version `0.1.0`, build `3`
+- Consumer UI, form experience and eagle logo: version `0.1.0`, build `3`
 - App Store Connect app ID: `6819749953`
 
 `app.json` is the source of truth for the team and version. Increment
@@ -101,7 +101,7 @@ check passed on iPhone 15 and iPad Air with no failures or skips, and captured
 screenshots were reviewed. The same non-blocking dependency dSYM warnings from
 the first upload remain. No application logic or data schema was changed.
 
-## Consumer UI and form experience — build 3
+## Consumer UI, form experience and eagle logo — build 3
 
 Version `0.1.0 (3)` contains the Home next-action dashboard, shared premium visual
 system, grouped forms with first-error scroll/focus, native iOS input hints and
@@ -109,25 +109,34 @@ keyboard navigation, compact passport review and country normalization, and
 refined photo/entry review screens. Storage keys, record schemas, production
 services, app identifier, and signing configuration remain unchanged.
 
-The existing gold artwork remains provisional until the owner supplies its new
-replacement. It is centrally wired and can be replaced without editing screens.
+The approved eagle artwork replaces the gold medallion across the native icon,
+splash, loading state, header, welcome tour and About screen. The user's mockup
+was edited to remove its surrounding charcoal margin and shadow; the app-icon
+master is a full-bleed, opaque 1024px sRGB PNG. The in-app mark has transparent
+rounded corners. The separate SwiftUI prototype shares the exported artwork.
 
 The production archive and standalone simulator Release build passed, along
 with TypeScript, 38 application/service tests, native passport/education,
 contact/keyboard/resume, photo, entry/timeline and responsive screen checks.
-Runtime source is commit `11b74c3`; subsequent validation commits contain only
-test harness refinements, documentation and captured screenshots.
+The UI runtime was implemented in `11b74c3`; the final eagle artwork and asset
+documentation are in `25f8ae7`. The new device archive and simulator Release
+build passed, and the archive includes the exact current in-app mark bytes.
+TypeScript and the welcome-tour/responsive-screen checks passed again after
+the artwork replacement: two test targets on each of iPhone 15 and iPad Air,
+four executions with no failures or skips (`build/Eagle-Branding.xcresult`).
 
-The October 6 export attempt was blocked before upload by Xcode reporting
+The October 6 export attempt with the new eagle archive was blocked before upload by Xcode reporting
 `No Account for Team "ZDK3K9BT5S"` and no matching local distribution certificate.
-Xcode's account UI shows the same account-access error and requests sign-in.
+App Store Connect is signed in in the browser and lists builds 1 and 2, but
+Xcode's separate account UI still shows the same account-access error.
 Restore the existing Apple account session, then retry the established automatic
 export workflow; do not replace signing infrastructure or create a new app.
 Build 3 is **not yet uploaded or assigned to Internal Testing**.
 
 The verified archive is retained at
-`~/Library/Developer/DVLotteryTracker/TestFlight-0.1.0-3/DVLotteryTracker-unsigned.xcarchive`,
+`~/Library/Developer/DVLotteryTracker/TestFlight-0.1.0-3-eagle/DVLotteryTracker-unsigned.xcarchive`,
 alongside `UploadOptions.plist` and `upload.log`.
+Use this eagle archive, not the earlier unuploaded build-3 archive with gold artwork.
 
 For simulator checks, build the Release app with simulator signing enabled
 (`CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=-`). Installing an unsigned
