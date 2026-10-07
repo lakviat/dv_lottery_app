@@ -16,7 +16,11 @@ import { preparationProgress } from "./expo-app/preparation";
 import { APP_NAME, APP_VERSION, BrandMark } from "./expo-app/Brand";
 import { HomeScreen, GuideContent } from "./expo-app/HomeScreen";
 import { ApplyScreen } from "./expo-app/ApplyScreen";
-import { PhotosScreen, removePhotoFile } from "./expo-app/PhotosScreen";
+import { PhotosScreen } from "./expo-app/PhotosScreen";
+import { cleanupOrphanPhotoFiles } from "./expo-app/photoFiles";
+import { resetPreparation } from "./expo-app/photoState";
+import { resetWorkflowHint } from "./expo-app/workflowPreference";
+import { createLocalDataOperations } from "./expo-app/localDataOperations";
 import { EntriesScreen } from "./expo-app/EntriesScreen";
 import {
   RegistrationAlerts,
@@ -36,7 +40,6 @@ import {
 import {
   Records,
   Tab,
-  makeDraft,
   makeRecords,
   official,
 } from "./expo-app/models";
@@ -90,6 +93,9 @@ function DVApp() {
   const [loadError, setLoadError] = useState("");
   const [saveState, setSaveState] = useState("Saved on this device");
   const [saveFailed, setSaveFailed] = useState(false);
+  const [clearing, setClearing] = useState(false);
+  const [dataOperations] = useState(createLocalDataOperations);
+  const beginPhotoOperation = dataOperations.beginPhotoOperation;
   const [guide, setGuide] = useState(false);
   const [settings, setSettings] = useState(false);
   const [alerts, setAlerts] = useState(false);
@@ -100,6 +106,7 @@ function DVApp() {
   const replayAfterSettings = useRef(false);
   const [addRequest, setAddRequest] = useState(0);
   const [scanRequest, setScanRequest] = useState(0);
+  const [swipeHintRequest, setSwipeHintRequest] = useState(0);
   const [photoPersonId, setPhotoPersonId] = useState<string | undefined>(undefined);
   const openPhotos = (personId?: string) => {
     setPhotoPersonId(personId);
@@ -108,7 +115,12 @@ function DVApp() {
   const load = () => {
     setLoadError("");
     void Promise.all([loadRecords(), shouldShowWelcome()])
-      .then(([data, showWelcome]) => {
+      .then(async ([data, showWelcome]) => {
+        try {
+          await cleanupOrphanPhotoFiles(data.photos);
+        } catch {
+          Alert.alert("Photo cleanup incomplete", "Your saved photo library is unchanged. Unused app copies could not be removed; cleanup will be retried next time you open the app.");
+        }
         latest.current = data;
         setWelcome(showWelcome);
         setRecords(data);
@@ -125,15 +137,20 @@ function DVApp() {
     setWelcome(false);
     void dismissWelcome();
   };
-  const update = (fn: (r: Records) => Records) => {
-    if (!latest.current) return;
+  const update = (fn: (r: Records) => Records): Promise<void> => {
+    if (!latest.current) throw new Error("Load saved records before changing them.");
+    if (dataOperations.isClearing()) {
+      const rejected = Promise.reject(new Error("Wait for local data deletion to finish."));
+      void rejected.catch(() => Alert.alert("Data deletion in progress", "Wait until deletion finishes before making changes."));
+      return rejected;
+    }
     const next = fn(latest.current);
     latest.current = next;
     setRecords(next);
     setSaveState("Saving…");
     const currentRevision = ++revision.current;
-    queue.current = queue.current
-      .then(() => saveRecords(next))
+    const saved = queue.current.then(() => saveRecords(next));
+    queue.current = saved
       .then(() => {
         if (revision.current === currentRevision) {
           setSaveState("Saved on this device");
@@ -144,6 +161,7 @@ function DVApp() {
         setSaveFailed(true);
         setSaveState("Save failed — tap to retry");
       });
+    return saved;
   };
   const apply = () => {
     update((r) => {
@@ -181,15 +199,20 @@ function DVApp() {
   };
   const resetDraft = () =>
     Alert.alert(
-      "Start a fresh draft?",
-      "Your current preparation details will be replaced. Saved entries and your photo library stay available.",
+      "Reset preparation?",
+      "This clears personal, passport, contact and family details, preparation progress, review confirmations and selected photo associations. Saved entry records and all saved photos will be kept. This cannot be undone.",
       [
         { text: "Cancel", style: "cancel" },
         {
-          text: "Reset draft",
+          text: "Reset preparation",
           style: "destructive",
           onPress: () => {
-            update((r) => ({ ...r, draft: makeDraft() }));
+            if (dataOperations.hasPhotoOperations()) {
+              Alert.alert("Finish the photo operation first", "Finish or cancel the photo import, save or check before resetting preparation.");
+              return;
+            }
+            update(resetPreparation);
+            setPhotoPersonId(undefined);
             setSettings(false);
             setTab("Apply");
           },
@@ -207,7 +230,12 @@ function DVApp() {
           style: "destructive",
           onPress: () => {
             if (!latest.current) return;
-            const old = latest.current;
+            if (dataOperations.isClearing()) return;
+            if (!dataOperations.beginClear()) {
+              Alert.alert("Finish the photo operation first", "Finish or cancel the photo import, save or check before deleting local data.");
+              return;
+            }
+            setClearing(true);
             const blank = makeRecords();
             queue.current = queue.current
               .then(async () => {
@@ -215,9 +243,11 @@ function DVApp() {
                 await saveRecords(blank);
                 latest.current = blank;
                 setRecords(blank);
-                await Promise.allSettled(
-                  old.photos.map((p) => removePhotoFile(p.uri)),
-                );
+                try {
+                  await cleanupOrphanPhotoFiles([]);
+                } catch {
+                  Alert.alert("Photo cleanup incomplete", "Your local records were cleared. Some unused photo copies could not be removed; cleanup will be retried next time you open the app.");
+                }
                 setSettings(false);
                 setTab("Home");
                 setSaveState("Saved on this device");
@@ -228,10 +258,21 @@ function DVApp() {
                   "Could not delete records",
                   "Your existing records have been kept. Try again.",
                 ),
-              );
+              )
+              .finally(() => {
+                dataOperations.finishClear();
+                setClearing(false);
+              });
           },
         },
       ],
+    );
+  if (clearing)
+    return (
+      <View style={{ flex: 1, backgroundColor: C.bg, padding: 28, gap: 16, justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator color={C.navy} />
+        <Text accessibilityRole="alert" style={s.body}>Deleting local app data…</Text>
+      </View>
     );
   if (!records)
     return (
@@ -383,15 +424,17 @@ function DVApp() {
       )}
       {tab === "Apply" && (
         <ApplyScreen
+          key={records.draft.people[0].id}
           records={records}
           update={update}
           photos={openPhotos}
           addEntry={addEntry}
           scanRequest={scanRequest}
+          swipeHintRequest={swipeHintRequest}
         />
       )}
       {tab === "Photos" && (
-        <PhotosScreen records={records} update={update} initialPersonId={photoPersonId} />
+        <PhotosScreen records={records} update={update} initialPersonId={photoPersonId} beginPhotoOperation={beginPhotoOperation} />
       )}
       {tab === "My Entries" && (
         <EntriesScreen
@@ -549,9 +592,22 @@ function DVApp() {
         </Card>
         <Button
           secondary
-          title="Start a fresh preparation draft"
+          title="Reset preparation"
+          testID="reset-preparation"
           icon="refresh-outline"
           onPress={resetDraft}
+        />
+        <Button
+          variant="tertiary"
+          title="Show the step navigation hint again"
+          icon="swap-horizontal-outline"
+          onPress={() => {
+            void resetWorkflowHint().then(() => {
+              setSwipeHintRequest((request) => request + 1);
+              setSettings(false);
+              setTab("Apply");
+            }).catch(() => Alert.alert("Could not reset the hint", "Please try again. Your preparation has not changed."));
+          }}
         />
         <Button
           danger

@@ -1,5 +1,6 @@
 import { Draft, Person, parseDate, today } from "./models";
 import { normalizeCountry } from "./countryNormalization";
+import { canonicalPersonName } from "./names";
 
 export type PassportReading = {
   first: string;
@@ -132,6 +133,11 @@ function readPair(
   };
 }
 
+function canonicalPassportName(name: Pick<PassportReading, "first" | "middle" | "last">) {
+  const { first, middle, last } = canonicalPersonName(name);
+  return { first, middle, last };
+}
+
 export function parsePassport(lines: string[], now = today()): PassportReading {
   const candidates = [
     ...new Set(
@@ -158,7 +164,7 @@ export function parsePassport(lines: string[], now = today()): PassportReading {
   if (results.size > 1) throw new PassportReadError("multiple");
   const result = [...results.values()][0];
   if (!result) throw new PassportReadError("unreadable");
-  return result;
+  return { ...result, ...canonicalPassportName(result) };
 }
 
 /** Unresolved fields need explicit review, not a guess or a blank replacement. */
@@ -173,11 +179,7 @@ export function unresolvedPassportCountries(reading: PassportReading): string[] 
 export function applyPassport(draft: Draft, reading: PassportReading): Draft {
   const primary: Person = {
     ...draft.people[0],
-    first: reading.first.trim(),
-    middle: reading.middle.trim(),
-    last: reading.last.trim(),
-    noFirst: !reading.first.trim(),
-    noLast: !reading.last.trim(),
+    ...canonicalPersonName(reading),
     dob: reading.dob,
     sex: reading.sex || draft.people[0].sex,
   };
@@ -202,8 +204,9 @@ export function applyPassport(draft: Draft, reading: PassportReading): Draft {
 
 /** Count only values which can actually fill corresponding fields. */
 export function passportFieldCount(reading: PassportReading): number {
+  const name = canonicalPassportName(reading);
   return [
-    reading.first.trim(), reading.middle.trim(), reading.last.trim(),
+    name.first, name.middle, name.last,
     reading.dob, reading.sex, reading.number.trim(),
     normalizeCountry(reading.issuer), normalizeCountry(reading.nationality),
     reading.expires,

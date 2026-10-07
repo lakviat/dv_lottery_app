@@ -1,11 +1,14 @@
+import type { PhotoCheckReport } from "./photoCheckTypes";
+import { hasTechnicalPhotoFailure } from "./photoChecks";
+
 export type Tab = "Home" | "Apply" | "Photos" | "My Entries";
 export type Person = {
   id: string;
   first: string;
   middle: string;
   last: string;
-  noFirst: boolean;
-  noLast: boolean;
+  oneLegalName: boolean;
+  selectedPhotoId: string;
   dob: string;
   sex: string;
   city: string;
@@ -50,10 +53,13 @@ export type Photo = {
   personId: string;
   name: string;
   uri: string;
+  sourceUri?: string;
   takenOn: string;
   bytes: number;
   composition: boolean;
   notReused: boolean;
+  notAltered: boolean;
+  analysis?: PhotoCheckReport;
 };
 export const statuses = [
   "Entry submitted",
@@ -77,7 +83,7 @@ export type Entry = {
   events: { id: string; status: EntryStatus; date: string; note: string }[];
 };
 export type Records = {
-  version: 2;
+  version: 3;
   draft: Draft;
   photos: Photo[];
   entries: Entry[];
@@ -95,8 +101,8 @@ export const makePerson = (
   first: "",
   middle: "",
   last: "",
-  noFirst: false,
-  noLast: false,
+  oneLegalName: false,
+  selectedPhotoId: "",
   dob: "",
   sex: "",
   city: "",
@@ -132,13 +138,13 @@ export const makeDraft = (): Draft => ({
   reviewed: false,
 });
 export const makeRecords = (): Records => ({
-  version: 2,
+  version: 3,
   draft: makeDraft(),
   photos: [],
   entries: [],
 });
 export const personName = (p: Person) =>
-  [p.noFirst ? "" : p.first.trim(), p.noLast ? "" : p.last.trim()]
+  [p.first.trim(), p.last.trim()]
     .filter(Boolean)
     .join(" ") ||
   (p.relationship === "Primary"
@@ -184,14 +190,33 @@ export function photoRecent(photo: Photo, now = new Date()) {
   return !!taken && taken >= cutoff && taken <= now;
 }
 export const photoReviewed = (photo: Photo, now = new Date()) =>
-  photo.composition && photo.notReused && photoRecent(photo, now);
+  photo.composition &&
+  photo.notReused &&
+  photo.notAltered &&
+  photoRecent(photo, now) &&
+  !hasTechnicalPhotoFailure(photo.analysis);
+export function selectedPhotoForPerson(person: Person, photos: Photo[]): Photo | undefined {
+  return photos.find(
+    (photo) =>
+      !!person.selectedPhotoId &&
+      photo.id === person.selectedPhotoId &&
+      photo.personId === person.id,
+  );
+}
+export function personPhotoComplete(
+  person: Person,
+  photos: Photo[],
+  now = new Date(),
+): boolean {
+  const photo = selectedPhotoForPerson(person, photos);
+  return !!photo && photoReviewed(photo, now);
+}
 export function personErrors(p: Person): Partial<Record<keyof Person, string>> {
   const errors: Partial<Record<keyof Person, string>> = {};
-  if (!p.first.trim() && !p.noFirst)
-    errors.first = "Enter your first / given name or choose no given name.";
-  if (!p.last.trim() && !p.noLast)
-    errors.last = "Enter your last / family name or choose no family name.";
-  if (p.noFirst && p.noLast) errors.first = "At least one name is required.";
+  if (!p.first.trim() && !p.oneLegalName)
+    errors.first = "Enter your first / given name or choose one legal name.";
+  if (!p.last.trim())
+    errors.last = "Enter your last / family name. If you have one legal name, enter it here.";
   if (!validPastDate(normalizeBirthDate(p.dob)))
     errors.dob =
       "Enter a real birth date in MM/DD/YYYY format, not in the future.";
@@ -252,12 +277,8 @@ export function draftIssues(d: Draft, photos: Photo[], step: number): string[] {
       );
     case 1:
       d.people.forEach((p) => {
-        if (
-          !photos.some(
-            (photo) => photo.personId === p.id && photoReviewed(photo),
-          )
-        )
-          errors.push(`Add and review a recent photo for ${personName(p)}.`);
+        if (!personPhotoComplete(p, photos))
+          errors.push(`Select and review a recent photo for ${personName(p)}.`);
       });
       break;
     case 2:

@@ -6,7 +6,7 @@ import {
   draftIssues,
   needsSpouse,
   personErrors,
-  photoReviewed,
+  personPhotoComplete,
   personName,
   steps,
 } from "./models";
@@ -82,15 +82,10 @@ export function reviewFieldErrors(d: Draft): FieldErrors {
 export function photoFieldErrors(d: Draft, photos: Photo[]): FieldErrors {
   return Object.fromEntries(
     d.people
-      .filter(
-        (p) =>
-          !photos.some(
-            (photo) => photo.personId === p.id && photoReviewed(photo),
-          ),
-      )
+      .filter((p) => !personPhotoComplete(p, photos))
       .map((p) => [
         `photo-${p.id}`,
-        `Add and review a recent photo for ${personName(p)}.`,
+        `Select and review a recent photo for ${personName(p)}.`,
       ]),
   );
 }

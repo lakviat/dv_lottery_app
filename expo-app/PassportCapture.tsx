@@ -86,9 +86,9 @@ export function PassportCapture({
   };
   const errors: Record<string, string | undefined> = reading
     ? {
-        "scan.first":
-          !reading.first.trim() && !reading.last.trim()
-            ? "Enter at least one name as shown on your passport."
+        "scan.last":
+          !reading.last.trim()
+            ? "Enter your last / family name. If you have one legal name, enter the complete name here."
             : undefined,
         "scan.dob": !validPastDate(normalizeBirthDate(reading.dob))
           ? "Enter a valid birth date using MM/DD/YYYY."
@@ -405,6 +405,13 @@ export function PassportCapture({
                       {displayBirthDate(reading.dob)}
                     </Text>
                   </View>
+                  <Fact label="Last / family name" value={reading.last} />
+                  {!reading.first.trim() && !reading.middle.trim() && (
+                    <Text style={s.small}>
+                      Your one legal name will be entered as your last / family
+                      name. First and middle names will stay blank.
+                    </Text>
+                  )}
                   <Fact
                     label="Nationality"
                     value={reading.nationality || "Confirm nationality"}
@@ -438,13 +445,12 @@ export function PassportCapture({
                   <Field
                     fieldId="scan.first"
                     testID="passport-review-first"
-                    label="First / given name"
+                    label="First / given name (if any)"
                     value={reading.first}
                     onChangeText={(v) => set("first", v)}
                     textContentType="givenName"
                     autoCapitalize="words"
                     spellCheck={false}
-                    error={showErrors ? errors["scan.first"] : undefined}
                   />
                   <Field
                     fieldId="scan.middle"
@@ -465,6 +471,7 @@ export function PassportCapture({
                     textContentType="familyName"
                     autoCapitalize="words"
                     spellCheck={false}
+                    error={showErrors ? errors["scan.last"] : undefined}
                   />
                 </FormSection>
                 <FormSection title="Birth information">

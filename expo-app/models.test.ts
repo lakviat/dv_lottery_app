@@ -4,6 +4,9 @@ import {
   draftIssues,
   detailsIssues,
   personErrors,
+  personName,
+  personPhotoComplete,
+  selectedPhotoForPerson,
   normalizeBirthDate,
   displayBirthDate,
   entryError,
@@ -15,6 +18,7 @@ import {
   today,
   type Entry,
 } from "./models";
+import type { PhotoCheckReport } from "./photoCheckTypes";
 
 test("strict dates reject impossible and incomplete dates", () => {
   assert.equal(parseDate("2026-02-30"), null);
@@ -42,11 +46,84 @@ test("each person needs a separately reviewed recent photo", () => {
     bytes: 2000,
     composition: true,
     notReused: true,
+    notAltered: true,
   };
+  d.people[0].selectedPhotoId = p.id;
   assert.equal(draftIssues(d, [p], 1).length, 1);
   assert.equal(photoReviewed({ ...p, composition: false }), false);
+  assert.equal(photoReviewed({ ...p, notReused: false }), false);
+  assert.equal(photoReviewed({ ...p, notAltered: false }), false);
   assert.equal(photoReviewed({ ...p, takenOn: "2000-01-01" }), false);
   assert.equal(photoReviewed({ ...p, takenOn: "2099-01-01" }), false);
+});
+
+test("a single legal name belongs in the required family-name field", () => {
+  const person = {
+    ...makePerson(), last: "EXAMPLE NAME", oneLegalName: true,
+    dob: "1987-02-04", sex: "Male", city: "Example", country: "Canada",
+  };
+  assert.deepEqual(personErrors(person), {});
+  assert.equal(personName(person), "EXAMPLE NAME");
+  assert.ok(personErrors({ ...person, oneLegalName: false }).first);
+  const incorrectlyPlaced = { ...person, first: person.last, last: "" };
+  assert.ok(personErrors(incorrectlyPlaced).last);
+  assert.ok(personErrors({ ...person, last: "" }).last);
+});
+
+test("only the assigned selected photo can complete a person's photo step", () => {
+  const d = makeDraft();
+  const person = d.people[0];
+  const photo: Photo = {
+    id: "complete", personId: person.id, name: "Example",
+    uri: "file:///portrait.jpg", takenOn: today(), bytes: 12000,
+    composition: true, notReused: true, notAltered: true,
+  };
+  const unreviewed = { ...photo, id: "unreviewed", composition: false };
+  const photos = [photo, unreviewed];
+  assert.equal(selectedPhotoForPerson(person, photos), undefined);
+  assert.equal(personPhotoComplete(person, photos), false);
+  assert.equal(draftIssues(d, photos, 1).length, 1);
+  for (const selectedPhotoId of ["unreviewed", "deleted"]) {
+    person.selectedPhotoId = selectedPhotoId;
+    assert.equal(personPhotoComplete(person, photos), false);
+    assert.equal(draftIssues(d, photos, 1).length, 1);
+  }
+  person.selectedPhotoId = photo.id;
+  assert.equal(selectedPhotoForPerson(person, photos), photo);
+  assert.equal(personPhotoComplete(person, photos), true);
+  assert.deepEqual(draftIssues(d, photos, 1), []);
+  assert.equal(
+    selectedPhotoForPerson(person, [{ ...photo, personId: "someone-else" }]),
+    undefined,
+  );
+});
+
+test("technical failures block completion while heuristics and unverified checks remain advisory", () => {
+  const person = { ...makePerson(), selectedPhotoId: "photo" };
+  const photo: Photo = {
+    id: "photo", personId: person.id, name: "Example", uri: "file:///photo.jpg",
+    takenOn: "2026-10-01", bytes: 12000,
+    composition: true, notReused: true, notAltered: true,
+  };
+  const now = new Date(2026, 9, 6);
+  for (const [kind, state, complete] of [
+    ["technical", "attention", false],
+    ["technical", "unverified", true],
+    ["technical", "pass", true],
+    ["heuristic", "attention", true],
+    ["manual", "unverified", true],
+  ] as const) {
+    const analysis: PhotoCheckReport = {
+      version: 1, checkedAt: "2026-10-06T12:00:00.000Z",
+      checks: [{ id: "test", label: "Test", kind, state, detail: "Test result." }],
+    };
+    assert.equal(personPhotoComplete(person, [{ ...photo, analysis }], now), complete);
+    assert.equal(photoReviewed({ ...photo, analysis }, now), complete);
+  }
+  assert.equal(personPhotoComplete(person, [photo], now), true);
+  assert.equal(personPhotoComplete(person, [{ ...photo, notAltered: false }], now), false);
+  assert.equal(personPhotoComplete(person, [{ ...photo, takenOn: "2026-04-05" }], now), false);
+  assert.equal(personPhotoComplete(person, [{ ...photo, takenOn: "2026-04-06" }], now), true);
 });
 test("confirmation, program year, and duplicates are validated", () => {
   const e: Entry = {

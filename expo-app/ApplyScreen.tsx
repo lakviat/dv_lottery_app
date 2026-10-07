@@ -16,6 +16,7 @@ import { photoForPerson, photoStatus } from "./photoPresentation";
 import { PreparationStepper } from "./PreparationStepper";
 import { SwipeBlock, WorkflowSwipe } from "./workflowGestures";
 import { motion, spacing } from "./theme";
+import { learnWorkflowSwipe, shouldShowWorkflowHint } from "./workflowPreference";
 import countries from "./countries.json";
 import {
   Draft,
@@ -44,6 +45,7 @@ import {
   Button,
   C,
   Card,
+  Disclosure,
   Field,
   FormAnchor,
   FormSection,
@@ -71,6 +73,7 @@ type Props = {
   photos: (personId?: string) => void;
   addEntry: () => void;
   scanRequest?: number;
+  swipeHintRequest?: number;
 };
 const sections = ["personal", "contact", "family"] as const;
 const sectionLabels = ["Personal", "Contact", "Family"];
@@ -110,40 +113,23 @@ function PersonFields({
     fieldId: personFieldID(person.id, key),
     error: errors[personFieldID(person.id, key)],
   });
-  const noNames = person.noFirst && person.noLast;
   return (
     <Stack gap={28}>
       <FormSection title="Personal information">
         <Field
           {...field("first")}
-          fieldId={
-            noNames
-              ? `${personFieldID(person.id, "first")}-disabled`
-              : personFieldID(person.id, "first")
-          }
-          error={noNames ? undefined : field("first").error}
-          label="First / given name"
+          label={person.oneLegalName ? "First / given name (optional)" : "First / given name"}
           value={person.first}
-          editable={!person.noFirst}
           nextFieldId={personFieldID(person.id, "middle")}
           textContentType="givenName"
           autoCapitalize="words"
           onChangeText={(v) => set("first", v)}
         />
-        <Toggle
-          fieldId={noNames ? personFieldID(person.id, "first") : undefined}
-          error={noNames ? field("first").error : undefined}
-          title="No first / given name"
-          value={person.noFirst}
-          onChange={(v) =>
-            change({ ...person, noFirst: v, first: v ? "" : person.first })
-          }
-        />
         <Field
           {...field("middle")}
           label="Middle name (optional)"
           value={person.middle}
-          nextFieldId={personFieldID(person.id, person.noLast ? "dob" : "last")}
+          nextFieldId={personFieldID(person.id, "last")}
           textContentType="middleName"
           autoCapitalize="words"
           onChangeText={(v) => set("middle", v)}
@@ -152,19 +138,20 @@ function PersonFields({
           {...field("last")}
           label="Last / family name"
           value={person.last}
-          editable={!person.noLast}
           nextFieldId={personFieldID(person.id, "dob")}
           textContentType="familyName"
           autoCapitalize="words"
           onChangeText={(v) => set("last", v)}
         />
-        <Toggle
-          title="No last / family name"
-          value={person.noLast}
-          onChange={(v) =>
-            change({ ...person, noLast: v, last: v ? "" : person.last })
-          }
-        />
+        <Disclosure title={person.oneLegalName ? "Name options: one legal name" : "Name options"}>
+          <Toggle
+            fieldId={personFieldID(person.id, "oneLegalName")}
+            title="I have only one legal name"
+            detail="If you have only one legal name, enter it as your family name, following the official DV instructions."
+            value={person.oneLegalName}
+            onChange={(v) => set("oneLegalName", v)}
+          />
+        </Disclosure>
       </FormSection>
       <FormSection
         title="Birth information"
@@ -216,6 +203,7 @@ export function ApplyScreen({
   photos,
   addEntry,
   scanRequest = 0,
+  swipeHintRequest = 0,
 }: Props) {
   const d = records.draft;
   const scroll = useRef<ScrollView>(null);
@@ -227,7 +215,8 @@ export function ApplyScreen({
   const reduced = useReducedMotion();
   const transition = useRef(new Animated.Value(0)).current;
   const previousStep = useRef(d.step);
-  const [swipeHint, setSwipeHint] = useState(true);
+  const [swipeHint, setSwipeHint] = useState(false);
+  const learnedSwipe = useRef(false);
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
     update((r) => ({
       ...r,
@@ -259,7 +248,6 @@ export function ApplyScreen({
     scroll.current?.scrollTo({ y: 0, animated: false });
   };
   const go = (step: number) => {
-    setSwipeHint(false);
     setShowErrors(false);
     set("step", step);
     resetView();
@@ -269,18 +257,43 @@ export function ApplyScreen({
     set("detailsSection", section);
     resetView();
   };
+  const swipeTo = (step: number) => {
+    go(step);
+    setSwipeHint(false);
+    if (!learnedSwipe.current) {
+      learnedSwipe.current = true;
+      void learnWorkflowSwipe().catch(() => {
+        Alert.alert("Hint preference not saved", "You can keep preparing. The swipe hint may appear again next time.");
+      });
+    }
+  };
   useEffect(() => {
     if (scanRequest) resetView();
   }, [scanRequest]);
   useEffect(() => {
-    const timeout = setTimeout(() => setSwipeHint(false), 6000);
+    let mounted = true;
+    learnedSwipe.current = false;
+    void shouldShowWorkflowHint().then((show) => {
+      if (mounted && !learnedSwipe.current) {
+        learnedSwipe.current = !show;
+        setSwipeHint(show);
+      }
+    }).catch(() => {
+      if (__DEV__) console.warn("Could not read the workflow hint preference.");
+      if (mounted && !learnedSwipe.current) setSwipeHint(true);
+    });
+    return () => { mounted = false; };
+  }, [swipeHintRequest]);
+  useEffect(() => {
+    if (!swipeHint) return;
+    const timeout = setTimeout(() => setSwipeHint(false), 8000);
     return () => clearTimeout(timeout);
-  }, []);
+  }, [swipeHint]);
   useLayoutEffect(() => {
     const from = previousStep.current;
     previousStep.current = d.step;
     transition.stopAnimation();
-    transition.setValue(reduced || from === d.step ? 0 : d.step > from ? 12 : -12);
+    transition.setValue(reduced || from === d.step ? 0 : d.step > from ? 16 : -16);
     const animation = Animated.timing(transition, {
       toValue: 0,
       duration: reduced ? 0 : motion.standard,
@@ -406,7 +419,7 @@ export function ApplyScreen({
     </View>
   );
   return (
-    <WorkflowSwipe current={d.step} count={steps.length} onSelect={go}>
+    <WorkflowSwipe current={d.step} count={steps.length} onSelect={swipeTo}>
       <Screen form={form} scrollRef={scroll} footer={footer}>
         <PageHeading
           eyebrow={`PREPARATION · STEP ${d.step + 1} OF 3`}
@@ -441,10 +454,14 @@ export function ApplyScreen({
             importantForAccessibility="no-hide-descendants"
             style={[s.small, { textAlign: "center", opacity: swipeHint ? 1 : 0 }]}
           >
-            Tap a step or swipe to move
+            ↔ Swipe or tap to move between steps
           </Text>
         </View>
-        <Animated.View style={{ gap: spacing.xxl, transform: [{ translateX: transition }] }}>
+        <Animated.View style={{
+          gap: spacing.xxl,
+          transform: [{ translateX: transition }],
+          opacity: transition.interpolate({ inputRange: [-16, 0, 16], outputRange: [0.9, 1, 0.9], extrapolate: "clamp" }),
+        }}>
           {d.step === 0 && (
             <>
               <View style={{ paddingVertical: 4 }}>
@@ -470,7 +487,7 @@ export function ApplyScreen({
                     form.focusField(
                       personFieldID(
                         d.people[0].id,
-                        d.people[0].noFirst ? "middle" : "first",
+                        d.people[0].oneLegalName ? "last" : "first",
                       ),
                     )
                   }
@@ -809,7 +826,7 @@ export function ApplyScreen({
                 determine acceptance.
               </Body>
               {d.people.map((p) => {
-                const photo = photoForPerson(records.photos, p.id);
+                const photo = photoForPerson(p, records.photos);
                 const status = photoStatus(photo);
                 return (
                   <FormAnchor
@@ -886,6 +903,29 @@ export function ApplyScreen({
                     </Pressable>
                   </SwipeBlock>
                 ))}
+                <Text style={s.fieldLabel}>Selected photos</Text>
+                {d.people.map((person) => {
+                  const photo = photoForPerson(person, records.photos);
+                  return (
+                    <SwipeBlock key={person.id}>
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={`${personName(person)}. ${photo ? "Selected photo" : "No photo selected"}. Open photo library.`}
+                        onPress={() => photos(person.id)}
+                        style={({ pressed }) => [s.row, { gap: 12, minHeight: 52, backgroundColor: pressed ? C.blueSoft : "transparent" }]}
+                      >
+                        {photo ? (
+                          <Image source={{ uri: photo.uri }} style={{ width: 48, height: 48, borderRadius: 8 }} accessible={false} />
+                        ) : <Icon name="image-outline" color={C.muted} />}
+                        <View style={{ flex: 1, gap: 4 }}>
+                          <Text style={s.fieldLabel}>{personName(person)}</Text>
+                          <Text style={s.small}>{photo ? `Selected · ${photoStatus(photo).label}` : "No photo selected"}</Text>
+                        </View>
+                        <Icon name="chevron-forward" size={16} />
+                      </Pressable>
+                    </SwipeBlock>
+                  );
+                })}
               </Card>
               <Card style={{ gap: 24 }}>
                 <FormSection

@@ -11,6 +11,7 @@ import {
   detailsFieldErrors,
   familyAddOptions,
   personFieldID,
+  photoFieldErrors,
   preparationCompletion,
   preparationProgress,
   reviewFieldErrors,
@@ -103,7 +104,9 @@ test("Home next action follows actual checklist completeness including expiry", 
     bytes: 1200,
     composition: true,
     notReused: true,
+    notAltered: true,
   });
+  r.draft.people[0].selectedPhotoId = "photo";
   assert.equal(preparationProgress(r).step, 2);
   Object.assign(r.draft, {
     eligibilityCountry: "Kyrgyzstan",
@@ -113,6 +116,7 @@ test("Home next action follows actual checklist completeness including expiry", 
     passportReviewed: true,
     reviewed: true,
   });
+
   assert.deepEqual(reviewFieldErrors(r.draft), {});
   assert.equal(preparationProgress(r).ready, true);
   assert.deepEqual(preparationCompletion(r.draft, r.photos), [true, true, true]);
@@ -126,6 +130,37 @@ test("Home next action follows actual checklist completeness including expiry", 
   assert.deepEqual(preparationCompletion(r.draft, r.photos), [true, false, true]);
   assert.equal(preparationProgress(r).ready, false);
   assert.equal(preparationProgress(r).step, 1);
+});
+
+test("photo errors and checklist use selection rather than a reviewed library alternative", () => {
+  const r = validPersonal();
+  const person = r.draft.people[0];
+  r.photos.push({
+    id: "ready", personId: person.id, name: "Example", uri: "file:///photo.jpg",
+    takenOn: today(), bytes: 12000,
+    composition: true, notReused: true, notAltered: true,
+  });
+  r.photos.push({ ...r.photos[0], id: "unreviewed", notAltered: false });
+  for (const selectedPhotoId of ["", "missing", "unreviewed"]) {
+    person.selectedPhotoId = selectedPhotoId;
+    assert.deepEqual(Object.keys(photoFieldErrors(r.draft, r.photos)), [`photo-${person.id}`]);
+    assert.equal(draftIssues(r.draft, r.photos, 1).length, 1);
+  }
+  person.selectedPhotoId = "ready";
+  assert.deepEqual(photoFieldErrors(r.draft, r.photos), {});
+  assert.deepEqual(draftIssues(r.draft, r.photos, 1), []);
+  r.photos[0].analysis = {
+    version: 1, checkedAt: "2026-10-06T12:00:00.000Z",
+    checks: [{
+      id: "dimensions", label: "Dimensions", kind: "technical",
+      state: "attention", detail: "Too small.",
+    }],
+  };
+  assert.equal(Object.keys(photoFieldErrors(r.draft, r.photos)).length, 1);
+  assert.equal(draftIssues(r.draft, r.photos, 1).length, 1);
+  r.photos[0].analysis.checks[0].kind = "heuristic";
+  assert.deepEqual(photoFieldErrors(r.draft, r.photos), {});
+  assert.deepEqual(draftIssues(r.draft, r.photos, 1), []);
 });
 test("field errors agree with existing checklist requirements", () => {
   const r = validPersonal();
