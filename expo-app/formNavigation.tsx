@@ -2,6 +2,7 @@ import React, {
   createContext,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useSyncExternalStore,
@@ -216,7 +217,7 @@ export function useFormControl(id: string, control: Control) {
   );
   const current = useRef(control);
   current.current = control;
-  useEffect(
+  useLayoutEffect(
     () =>
       form?.register(id, {
         node: () => current.current.node(),

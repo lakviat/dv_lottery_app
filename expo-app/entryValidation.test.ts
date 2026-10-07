@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { entryFieldErrors, timelineFieldErrors } from "./entryValidation";
 import { Entry } from "./models";
+import { firstInvalidField } from "./formValidation";
 const now = new Date(2026, 9, 6);
 const input = {
   name: "Example Applicant",
@@ -73,6 +74,19 @@ test("duplicate records point to the confirmation and year instead of a generic 
   );
   assert.ok(errors.confirmation?.includes("already saved"));
   assert.ok(errors.year?.includes("already saved"));
+});
+test("duplicate checks keep year and confirmation ahead of a missing submission date", () => {
+  const existing: Entry = { ...input, id: "existing", caseNumber: "", events: [] };
+  const errors = entryFieldErrors({ ...input, submitted: "" }, [existing], true, now);
+  assert.deepEqual(Object.keys(errors), ["year", "confirmation", "submitted"]);
+  assert.equal(firstInvalidField(errors, new Set(Object.keys(input))), "year");
+
+  const confirmationOnly = entryFieldErrors(
+    { ...input, name: "Different Applicant", submitted: "" },
+    [existing], true, now,
+  );
+  assert.deepEqual(Object.keys(confirmationOnly), ["confirmation", "submitted"]);
+  assert.equal(firstInvalidField(confirmationOnly, new Set(Object.keys(input))), "confirmation");
 });
 test("timeline validation keeps submission-date bounds and attestation independent", () => {
   assert.ok(

@@ -274,6 +274,7 @@ export function EntriesScreen({
             value={query}
             onChangeText={setQuery}
             returnKeyType="search"
+            textContentType="none"
           />
           {!filtered.length ? (
             <Empty icon="search-outline" title="No matching entries">
@@ -533,6 +534,7 @@ export function EntriesScreen({
                   label="Notes (optional)"
                   value={note}
                   multiline
+                  autoCapitalize="sentences"
                   onChangeText={(value) => {
                     setNote(value);
                     setUpdateSaved(false);
