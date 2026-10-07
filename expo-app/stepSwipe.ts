@@ -1,4 +1,4 @@
-type Movement = { dx: number; dy: number };
+type Movement = { dx: number; dy: number; vx?: number };
 type TouchMovement = Movement & { numberActiveTouches: number };
 
 export function adjacentStep(current: number, count: number, dx: number) {
@@ -25,11 +25,12 @@ export function createStepSwipe() {
     shouldClaim({ dx, dy, numberActiveTouches }: TouchMovement) {
       if (numberActiveTouches !== 1 || (Math.abs(dy) >= 12 && Math.abs(dx) < Math.abs(dy) * 2))
         blocked = true;
-      return !blocked && Math.abs(dx) >= 36 && Math.abs(dx) > Math.abs(dy) * 2;
+      return !blocked && Math.abs(dx) >= 22 && Math.abs(dx) > Math.abs(dy) * 2;
     },
-    finish(current: number, count: number, { dx, dy }: Movement) {
-      const deliberate = !blocked && Math.abs(dx) >= 72 &&
-        Math.abs(dy) <= 32 && Math.abs(dx) > Math.abs(dy) * 2;
+    finish(current: number, count: number, { dx, dy, vx = 0 }: Movement) {
+      const flick = Math.abs(dx) >= 24 && Math.abs(vx) >= 0.45 && Math.sign(vx) === Math.sign(dx);
+      const deliberate = !blocked && (Math.abs(dx) >= 48 || flick) &&
+        Math.abs(dy) <= 28 && Math.abs(dx) > Math.abs(dy) * 2;
       blocked = true;
       return deliberate ? adjacentStep(current, count, dx) : undefined;
     },

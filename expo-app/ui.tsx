@@ -211,7 +211,7 @@ export function Button({
   const kind =
     variant ?? (danger ? "destructive" : secondary ? "secondary" : "primary");
   const foreground =
-    disabled ? C.muted : kind === "tertiary" ? C.blue : kind === "secondary" ? C.navy : C.white;
+    disabled ? C.muted : kind === "tertiary" ? danger ? C.red : C.blue : kind === "secondary" ? C.navy : C.white;
   const animate = (value: number) =>
     Animated.timing(scale, {
       toValue: reduced ? 1 : value,
@@ -237,13 +237,15 @@ export function Button({
               disabled
                 ? C.disabled
                 : kind === "secondary"
-                ? C.blueSoft
+                ? pressed ? C.blueSoft : C.white
                 : kind === "tertiary"
                   ? "transparent"
                   : kind === "destructive"
                     ? C.red
                     : pressed ? C.primaryPressed : C.navy,
             opacity: pressed && kind !== "primary" ? 0.88 : 1,
+            borderWidth: kind === "secondary" ? 1 : 0,
+            borderColor: C.inputLine,
           },
         ]}
       >
@@ -1070,10 +1072,12 @@ export function LinkRow({
   );
 }
 export function Disclosure({ title, children }: PropsWithChildren<{ title: string }>) {
+  const blockSwipe = useBlockWorkflowSwipe();
   const [expanded, setExpanded] = useState(false);
   return (
     <View style={{ gap: expanded ? spacing.md : 0 }}>
       <Pressable
+        onTouchStart={blockSwipe}
         accessibilityRole="button"
         accessibilityLabel={title}
         accessibilityState={{ expanded }}

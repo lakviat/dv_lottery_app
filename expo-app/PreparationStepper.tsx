@@ -85,6 +85,17 @@ function Step({
 }) {
   const checkAppearance = useRef(new Animated.Value(1)).current;
   const previouslyCompleted = useRef(completed);
+  const activeAppearance = useRef(new Animated.Value(selected ? 1 : 0)).current;
+
+  useEffect(() => {
+    const animation = Animated.timing(activeAppearance, {
+      toValue: selected ? 1 : 0,
+      duration: reduced ? 0 : motion.short,
+      useNativeDriver: true,
+    });
+    animation.start();
+    return () => animation.stop();
+  }, [activeAppearance, selected, reduced]);
 
   useEffect(() => {
     const justCompleted = completed && !previouslyCompleted.current;
@@ -122,11 +133,12 @@ function Step({
         importantForAccessibility="no-hide-descendants"
         style={[styles.nodeRow, { height: nodeRowHeight }]}
       >
-        <View
+        <Animated.View
           style={[
             styles.nodeRing,
             { width: nodeSize, height: nodeSize },
             selected && styles.selectedRing,
+            { transform: [{ scale: activeAppearance.interpolate({ inputRange: [0, 1], outputRange: [0.98, 1] }) }] },
           ]}
         >
           <View
@@ -162,7 +174,7 @@ function Step({
               </Text>
             )}
           </View>
-        </View>
+        </Animated.View>
       </View>
       <Text
         style={[

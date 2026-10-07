@@ -96,10 +96,13 @@ export function WorkflowSwipe({
       onPanResponderMove: (event, gesture) => {
         swipe.shouldClaim({ ...movement(event), numberActiveTouches: gesture.numberActiveTouches });
       },
-      onPanResponderRelease: (event) => {
+      onPanResponderRelease: (event, gesture) => {
         const state = latest.current;
         if (state.current !== startingStep.current || state.screenReader || editing()) swipe.block();
-        const target = swipe.finish(state.current, state.count, movement(event));
+        const target = swipe.finish(state.current, state.count, {
+          ...movement(event),
+          vx: gesture.vx,
+        });
         if (target !== undefined) state.onSelect(target);
       },
       onPanResponderReject: () => swipe.block(),

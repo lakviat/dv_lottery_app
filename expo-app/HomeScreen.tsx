@@ -154,6 +154,7 @@ export function HomeScreen({
                   style={({ pressed }) => ({
                     flex: 1,
                     minHeight: 44,
+                    paddingHorizontal: spacing.xs,
                     flexDirection: "row",
                     alignItems: "center",
                     gap: spacing.xs,
@@ -166,9 +167,14 @@ export function HomeScreen({
                     size={17}
                     color={progress.completed[index] ? C.green : C.muted}
                   />
-                  <Text style={[typography.caption, { color: C.navy, flexShrink: 1 }]}>
+                  <Text style={[typography.detail, {
+                    color: progress.completed[index] ? C.green : index === progress.step ? C.blue : C.navy,
+                    fontWeight: "600",
+                    flexShrink: 1,
+                  }]}>
                     {step}
                   </Text>
+                  <Icon name="chevron-forward" size={12} color={C.muted} />
                 </Pressable>
               ))}
             </View>

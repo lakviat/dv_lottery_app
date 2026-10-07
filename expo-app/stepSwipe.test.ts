@@ -66,11 +66,34 @@ test("capture and release thresholds are enforced in both directions", () => {
   for (const direction of [-1, 1]) {
     const swipe = createStepSwipe();
     swipe.begin(start);
-    assert.equal(swipe.shouldClaim({ dx: 35 * direction, dy: 0, numberActiveTouches: 1 }), false);
-    assert.equal(swipe.shouldClaim({ dx: 36 * direction, dy: 0, numberActiveTouches: 1 }), true);
-    assert.equal(swipe.finish(1, 3, { dx: 71 * direction, dy: 0 }), undefined);
+    assert.equal(swipe.shouldClaim({ dx: 21 * direction, dy: 0, numberActiveTouches: 1 }), false);
+    assert.equal(swipe.shouldClaim({ dx: 22 * direction, dy: 0, numberActiveTouches: 1 }), true);
+    assert.equal(swipe.finish(1, 3, { dx: 47 * direction, dy: 0 }), undefined);
     swipe.begin(start);
-    swipe.shouldClaim({ dx: 72 * direction, dy: 0, numberActiveTouches: 1 });
-    assert.equal(swipe.finish(1, 3, { dx: 72 * direction, dy: 0 }), direction < 0 ? 2 : 0);
+    swipe.shouldClaim({ dx: 48 * direction, dy: 0, numberActiveTouches: 1 });
+    assert.equal(swipe.finish(1, 3, { dx: 48 * direction, dy: 0 }), direction < 0 ? 2 : 0);
+  }
+});
+
+test("short horizontal flicks work in all four main-step directions", () => {
+  for (const [current, dx, expected] of [[0, -28, 1], [1, 28, 0], [1, -28, 2], [2, 28, 1]]) {
+    const swipe = createStepSwipe();
+    swipe.begin(start);
+    swipe.shouldClaim({ dx, dy: 3, numberActiveTouches: 1 });
+    assert.equal(swipe.finish(current, 3, { dx, dy: 3, vx: Math.sign(dx) * 0.5 }), expected);
+  }
+});
+
+test("velocity cannot override short, vertical, blocked or direction-reversing gestures", () => {
+  for (const movement of [
+    { dx: -23, dy: 0, vx: -1 },
+    { dx: -28, dy: 3, vx: -0.44 },
+    { dx: -28, dy: 3, vx: 1 },
+    { dx: -28, dy: 20, vx: -2 },
+  ]) {
+    const swipe = createStepSwipe();
+    swipe.begin(start);
+    swipe.shouldClaim({ ...movement, numberActiveTouches: 1 });
+    assert.equal(swipe.finish(1, 3, movement), undefined);
   }
 });
