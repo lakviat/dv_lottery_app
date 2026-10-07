@@ -13,6 +13,27 @@ export type PassportReading = {
   expires: string;
 };
 
+const readErrors = {
+  multiple:
+    "More than one passport was detected. Choose a photo of just one identity page.",
+  unreadable:
+    "We couldn’t read both passport lines reliably. Include the two lines of letters, numbers and < symbols at the bottom, avoid glare, and try again. You can also enter your details manually.",
+};
+
+class PassportReadError extends Error {
+  constructor(readonly reason: keyof typeof readErrors) {
+    super(readErrors[reason]);
+    this.name = "PassportReadError";
+  }
+}
+
+/** Only parser-authored guidance is safe to display, never native error details. */
+export function passportScanErrorMessage(error: unknown): string {
+  return error instanceof PassportReadError
+    ? readErrors[error.reason]
+    : "We couldn’t read that photo. Try a clear photo of one passport’s identity page with both lines at the bottom, or enter your details manually.";
+}
+
 // ICAO Doc 9303, TD3: two lines of 44 characters. Check digits detect OCR
 // mistakes; they do not authenticate the document or validate eligibility.
 export function mrzCheckDigit(value: string): string {
@@ -134,16 +155,18 @@ export function parsePassport(lines: string[], now = today()): PassportReading {
       if (result) results.set(JSON.stringify(result), result);
     }
   }
-  if (results.size > 1)
-    throw new Error(
-      "More than one passport was detected. Choose a photo of just one identity page.",
-    );
+  if (results.size > 1) throw new PassportReadError("multiple");
   const result = [...results.values()][0];
-  if (!result)
-    throw new Error(
-      "We couldn’t read both passport lines reliably. Include the two lines of letters, numbers and < symbols at the bottom, avoid glare, and try again. You can also enter your details manually.",
-    );
+  if (!result) throw new PassportReadError("unreadable");
   return result;
+}
+
+/** Unresolved fields need explicit review, not a guess or a blank replacement. */
+export function unresolvedPassportCountries(reading: PassportReading): string[] {
+  return [
+    !normalizeCountry(reading.issuer) ? "issuing country" : "",
+    !normalizeCountry(reading.nationality) ? "nationality" : "",
+  ].filter(Boolean);
 }
 
 /** Use only after the review screen has obtained explicit replacement consent. */

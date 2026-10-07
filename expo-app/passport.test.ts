@@ -1,6 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { applyPassport, mrzCheckDigit, parsePassport, passportFieldCount } from "./passport";
+import {
+  applyPassport,
+  mrzCheckDigit,
+  parsePassport,
+  passportFieldCount,
+  passportScanErrorMessage,
+  unresolvedPassportCountries,
+} from "./passport";
 import { makeDraft, makePerson } from "./models";
 
 // Public ICAO specimen: fictional Utopia passport, never a user's document.
@@ -131,4 +138,79 @@ test("reviewed human-readable country values use the same canonical mapping", ()
   const result = applyPassport(makeDraft(), reading);
   assert.equal(result.passport.issuer, "Kyrgyzstan");
   assert.equal(result.passport.nationality, "Kyrgyzstan");
+});
+
+test("only unresolved country fields require explicit keep-unchanged confirmation", () => {
+  const reading = parsePassport([first, second]);
+  assert.deepEqual(unresolvedPassportCountries(reading), [
+    "issuing country",
+    "nationality",
+  ]);
+  assert.deepEqual(
+    unresolvedPassportCountries({
+      ...reading,
+      issuer: "Kyrgyz Republic",
+      nationality: "kg",
+    }),
+    [],
+  );
+  assert.deepEqual(
+    unresolvedPassportCountries({
+      ...reading,
+      issuer: "Korea",
+      nationality: "CAN",
+    }),
+    ["issuing country"],
+  );
+  assert.deepEqual(
+    unresolvedPassportCountries({
+      ...reading,
+      issuer: "DEU",
+      nationality: "",
+    }),
+    ["nationality"],
+  );
+});
+
+test("ambiguous countries do not replace manually edited countries on confirmed import", () => {
+  const draft = makeDraft();
+  draft.passport.issuer = "Canada";
+  draft.passport.nationality = "Germany";
+  const before = structuredClone(draft);
+  const reading = {
+    ...parsePassport([first, second]),
+    issuer: "Congo",
+    nationality: "Korea",
+  };
+  const result = applyPassport(draft, reading);
+  assert.equal(result.passport.issuer, before.passport.issuer);
+  assert.equal(result.passport.nationality, before.passport.nationality);
+  assert.equal(passportFieldCount(reading), 7);
+  assert.deepEqual(draft, before);
+});
+
+test("scan failures show actionable guidance without exposing native error details", () => {
+  const fallback = passportScanErrorMessage(undefined);
+  assert.match(fallback, /clear photo/);
+  assert.match(fallback, /manually/);
+  for (const error of [
+    new Error("Native recognizer failure: internal diagnostic"),
+    { message: "Native recognizer failure: internal diagnostic" },
+    "Native recognizer failure: internal diagnostic",
+    null,
+  ]) {
+    assert.equal(passportScanErrorMessage(error), fallback);
+  }
+  for (const [lines, message] of [
+    [[], /both passport lines/],
+    [[first, first.replace("ANNA", "JANE"), second], /More than one passport/],
+  ] as [string[], RegExp][]) {
+    assert.throws(
+      () => parsePassport(lines),
+      (error: unknown) => {
+        assert.match(passportScanErrorMessage(error), message);
+        return true;
+      },
+    );
+  }
 });
