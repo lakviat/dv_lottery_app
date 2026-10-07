@@ -168,6 +168,13 @@ function DVApp() {
     setScanRequest((v) => v + 1);
     setTab("Apply");
   };
+  const openPreparationStep = (step: number) => {
+    update((r) => ({
+      ...r,
+      draft: { ...r.draft, started: true, step },
+    }));
+    setTab("Apply");
+  };
   const addEntry = () => {
     setTab("My Entries");
     setAddRequest((v) => v + 1);
@@ -367,6 +374,7 @@ function DVApp() {
           alerts={() => setAlerts(true)}
           registrationStatus={registrationSummary(alertStatus.feed)}
           apply={apply}
+          openStep={openPreparationStep}
           scan={scan}
           photos={() => openPhotos()}
           entries={() => setTab("My Entries")}

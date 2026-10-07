@@ -11,7 +11,7 @@ Static checks for the current changes:
 | Command | Result |
 | --- | --- |
 | `npm run typecheck` | Passed with strict TypeScript; installed React Native 0.86.3 input declarations inspected |
-| `npm test` | Passed: 44 app/domain tests and 7 isolated registration-service tests |
+| `npm test` | Passed after progress refinement: 50 app/domain tests and 7 isolated registration-service tests |
 | `git diff --check` | Passed |
 
 The initial typecheck could not find `tsc`; `npm ci --no-audit --no-fund`
@@ -30,6 +30,32 @@ No floating development control was found in the Expo app sources. Expo's
 development tooling and the separate SwiftUI UI-test fixtures were not removed.
 See the [round-2 device checklist](TESTFLIGHT.md#round-2-polish-device-checklist)
 before accepting or merging this change.
+
+### Connected progress refinement
+
+The same branch/PR now has a separate connected Prepare stepper and compact
+editable Home shortcuts. Both calculate completion from current `draftIssues`
+through `preparationCompletion`; no cached completion flags or step locks were
+introduced. Swipes and checkpoint taps use the same `go` path. Continue retains
+its existing validation behavior.
+
+- `npm run typecheck`: passed.
+- `node_modules/.bin/tsx --test expo-app/stepSwipe.test.ts expo-app/preparation.test.ts expo-app/formValidation.test.ts`: 16 passed.
+- `npm test`: 50 app/domain and 7 service tests passed.
+- `git diff --check`: passed.
+- Dependencies, configuration, native modules, model/business rules, services
+  and persistence were compared with the preceding PR revision and are unchanged.
+
+The existing React Native PanResponder and KeyboardAvoidingView implementations
+were inspected. Gesture handlers are attached to the existing keyboard surface,
+not an extra native wrapper that would change keyboard coordinates. Movement is
+measured from the initial touch because PanResponder resets its own deltas on
+responder grant. Pure tests cover deliberate gestures, direction locking,
+boundaries, control cancellation, editing, screen readers and multi-touch.
+
+**NOT BUILT LOCALLY.** These checks do not establish gesture arbitration with
+native controls, rendered connector alignment or motion. See the
+[progress device checks](TESTFLIGHT.md#connected-progress-device-checks).
 
 ## Historical verification
 

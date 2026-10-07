@@ -95,9 +95,13 @@ export function photoFieldErrors(d: Draft, photos: Photo[]): FieldErrors {
   );
 }
 
+export function preparationCompletion(draft: Draft, photos: Photo[]) {
+  return steps.map((_, i) => !draftIssues(draft, photos, i).length);
+}
+
 export function preparationProgress(records: Records) {
   const { draft, photos } = records;
-  const completed = steps.map((_, i) => !draftIssues(draft, photos, i).length);
+  const completed = preparationCompletion(draft, photos);
   const next = completed.findIndex((done) => !done);
   const step = next === -1 ? 2 : next;
   const section =

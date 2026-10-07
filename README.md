@@ -26,6 +26,17 @@ The shared visual system lives in `expo-app/theme.ts` and `expo-app/ui.tsx`.
 `formNavigation.tsx` provides the same inline-error, first-invalid focus,
 keyboard and sticky-action behavior across preparation and modal forms. Home
 uses the existing checklist rules to show progress and the next useful action.
+Home's compact status shortcuts reopen any main step, including completed ones.
+Prepare instead uses `PreparationStepper.tsx`: connected checkpoints with live
+completion checks, a current-step ring and short connector/check animations.
+Personal / Contact / Family remain a secondary navigation row.
+
+Tap a checkpoint or deliberately swipe horizontally on non-interactive Prepare
+content to move between main steps. Both use the same editable navigation;
+Continue still validates the current form. Swipes are excluded on controls,
+while editing with the keyboard, with VoiceOver, at screen edges and after
+vertical or multi-touch movement. No gesture/navigation dependency was added.
+
 Validation maps list fields in screen order, so conditional controls cannot change
 which error is addressed first. iOS contact hints use supported `textContentType`
 values; mailing/residence country suggestions appear in the picker search field

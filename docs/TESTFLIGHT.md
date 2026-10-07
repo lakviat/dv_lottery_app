@@ -209,6 +209,35 @@ AutoFill suggestions, haptics, permissions, native measurements and responsive
 layout cannot be established by the static checks. The temporary icon is
 unchanged; the final independent artwork is still pending.
 
+## Connected progress device checks
+
+**NOT BUILT LOCALLY.** On the same PR's rebuilt version:
+
+1. Open Prepare: confirm one connected Your details / Photos / Review stepper,
+   not three large boxes. Personal / Contact / Family should remain secondary.
+2. Check incomplete, current, completed and current-plus-completed states,
+   including VoiceOver labels, large text and smaller iPhones.
+3. Tap every checkpoint, including completed steps. Each must reopen its exact
+   main step for editing; Details preserves its selected subsection.
+4. With the keyboard dismissed, swipe left/right on non-interactive content or
+   the main stepper. Deliberate one-finger horizontal swipes move one neighboring
+   step, without wrapping past the first/last step. Test vertical/diagonal/short
+   drags, text selection, switches, selectors, photo actions, sheets and edge
+   gestures: they must not navigate. VoiceOver uses step buttons, not custom swipes.
+5. Complete a step and inspect the brief check/connector motion. Navigating
+   between steps should have only a light directional shift. Reduce Motion must
+   disable animations. The small initial hint disappears without shifting fields.
+6. Reopen a completed step, clear education or another requirement, and confirm
+   completion updates on Prepare and Home. Restore it and repeat with photo
+   review flags. Continue must still guide invalid fields into view.
+7. Return Home: check compact completion shortcuts, one primary next action,
+   absence of "YOUR DV JOURNEY" / "No account required", and direct reopening
+   of every main step even when the entire checklist is complete.
+
+Check keyboard avoidance, sticky Continue, saved progress after relaunch, safe
+areas and portrait/landscape after introducing gestures. Native gesture behavior
+cannot be proven by the pure gesture tests.
+
 ## Publication scope
 
 Uploading a build to TestFlight does not publish an App Store release. Begin with

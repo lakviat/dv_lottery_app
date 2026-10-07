@@ -15,13 +15,13 @@ import {
   Notice,
   PageHeading,
   ProgressBar,
-  ProgressSteps,
   Row,
   Screen,
   Stack,
   Title,
   radius,
   spacing,
+  typography,
   s,
 } from "./ui";
 
@@ -74,6 +74,7 @@ function QuickAction({
 export function HomeScreen({
   records,
   apply,
+  openStep,
   scan,
   photos,
   entries,
@@ -83,6 +84,7 @@ export function HomeScreen({
 }: {
   records: Records;
   apply: () => void;
+  openStep: (step: number) => void;
   scan: () => void;
   photos: () => void;
   entries: () => void;
@@ -95,7 +97,6 @@ export function HomeScreen({
   return (
     <Screen wide>
       <PageHeading
-        eyebrow="YOUR DV JOURNEY"
         title={
           progress.ready ? "Ready for your next step" : "Prepare your entry"
         }
@@ -141,30 +142,42 @@ export function HomeScreen({
               </Text>
             </View>
             <ProgressBar value={progress.count / 3} />
-            <ProgressSteps
-              steps={steps}
-              current={progress.step}
-              completed={progress.completed.flatMap((done, i) =>
-                done ? [i] : [],
-              )}
-            />
+            <View style={{ flexDirection: "row", gap: spacing.sm }}>
+              {steps.map((step, index) => (
+                <Pressable
+                  key={step}
+                  testID={`home-step-${index}`}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${step}, ${progress.completed[index] ? "completed" : "not completed"}`}
+                  accessibilityHint="Open this preparation step to review or edit it."
+                  onPress={() => openStep(index)}
+                  style={({ pressed }) => ({
+                    flex: 1,
+                    minHeight: 44,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: spacing.xs,
+                    borderRadius: radius.sm,
+                    backgroundColor: pressed ? C.blueSoft : "transparent",
+                  })}
+                >
+                  <Icon
+                    name={progress.completed[index] ? "checkmark-circle" : "ellipse-outline"}
+                    size={17}
+                    color={progress.completed[index] ? C.green : C.muted}
+                  />
+                  <Text style={[typography.caption, { color: C.navy, flexShrink: 1 }]}>
+                    {step}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
             <Button
               title={progress.action}
               testID="home-next-action"
               icon="arrow-forward"
               onPress={apply}
             />
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 6,
-              }}
-            >
-              <Icon name="lock-closed-outline" size={13} color={C.muted} />
-              <Text style={s.small}>No account required</Text>
-            </View>
           </Card>
         </View>
         <View style={{ flex: 1, gap: 6 }}>

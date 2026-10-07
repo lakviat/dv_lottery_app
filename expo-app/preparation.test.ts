@@ -11,6 +11,7 @@ import {
   detailsFieldErrors,
   familyAddOptions,
   personFieldID,
+  preparationCompletion,
   preparationProgress,
   reviewFieldErrors,
 } from "./preparation";
@@ -114,7 +115,15 @@ test("Home next action follows actual checklist completeness including expiry", 
   });
   assert.deepEqual(reviewFieldErrors(r.draft), {});
   assert.equal(preparationProgress(r).ready, true);
+  assert.deepEqual(preparationCompletion(r.draft, r.photos), [true, true, true]);
+  r.draft.education = "";
+  r.draft.reviewed = false;
+  assert.deepEqual(preparationCompletion(r.draft, r.photos), [false, true, false]);
+  assert.deepEqual(preparationProgress(r).completed, preparationCompletion(r.draft, r.photos));
+  r.draft.education = "High school degree";
+  r.draft.reviewed = true;
   r.photos[0].takenOn = "2000-01-01";
+  assert.deepEqual(preparationCompletion(r.draft, r.photos), [true, false, true]);
   assert.equal(preparationProgress(r).ready, false);
   assert.equal(preparationProgress(r).step, 1);
 });

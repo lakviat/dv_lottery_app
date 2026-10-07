@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
+  GestureResponderHandlers,
   InputAccessoryView,
   Keyboard,
   KeyboardAvoidingView,
@@ -35,6 +36,7 @@ import {
   useFormNavigation,
 } from "./formNavigation";
 import { useReducedMotion } from "./motion";
+import { useBlockWorkflowSwipe, useWorkflowGestureHandlers } from "./workflowGestures";
 
 export { useFormNavigation } from "./formNavigation";
 export type { FormErrors, FormNavigation } from "./formNavigation";
@@ -203,6 +205,7 @@ export function Button({
   variant?: ButtonVariant;
   accessibilityHint?: string;
 }) {
+  const blockSwipe = useBlockWorkflowSwipe();
   const reduced = useReducedMotion();
   const scale = useRef(new Animated.Value(1)).current;
   const kind =
@@ -216,7 +219,7 @@ export function Button({
       useNativeDriver: true,
     }).start();
   return (
-    <Animated.View style={{ transform: [{ scale }] }}>
+    <Animated.View onTouchStart={blockSwipe} style={{ transform: [{ scale }] }}>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={title}
@@ -287,6 +290,7 @@ export function Field({
   fieldId?: string;
   nextFieldId?: string;
 }) {
+  const blockSwipe = useBlockWorkflowSwipe();
   const id = fieldId ?? label;
   const wrapper = useRef<View>(null);
   const input = useRef<TextInput>(null);
@@ -313,7 +317,7 @@ export function Field({
       )) &&
     props.editable !== false;
   return (
-    <View ref={wrapper} collapsable={false} style={{ gap: spacing.sm }}>
+    <View ref={wrapper} onTouchStart={blockSwipe} collapsable={false} style={{ gap: spacing.sm }}>
       <Text style={s.fieldLabel}>{label}</Text>
       <TextInput
         ref={input}
@@ -394,6 +398,7 @@ export function Toggle({
   fieldId?: string;
   error?: string;
 }) {
+  const blockSwipe = useBlockWorkflowSwipe();
   const wrapper = useRef<View>(null);
   const toggle = useRef<Switch>(null);
   useFormControl(fieldId ?? title, {
@@ -406,6 +411,7 @@ export function Toggle({
   return (
     <View
       ref={wrapper}
+      onTouchStart={blockSwipe}
       collapsable={false}
       style={[
         { gap: 8 },
@@ -463,6 +469,7 @@ export function Select({
   disabled?: boolean;
   searchTextContentType?: TextInputProps["textContentType"];
 }) {
+  const blockSwipe = useBlockWorkflowSwipe();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const wrapper = useRef<View>(null);
@@ -479,7 +486,7 @@ export function Select({
   );
   return (
     <>
-      <View ref={wrapper} collapsable={false} style={{ gap: spacing.sm }}>
+      <View ref={wrapper} onTouchStart={blockSwipe} collapsable={false} style={{ gap: spacing.sm }}>
         <Text style={s.fieldLabel}>{label}</Text>
         <Pressable
           ref={control}
@@ -578,6 +585,7 @@ export function FormAnchor({
   label = "Needs your attention",
   children,
 }: PropsWithChildren<{ fieldId: string; error?: string; label?: string }>) {
+  const blockSwipe = useBlockWorkflowSwipe();
   const wrapper = useRef<View>(null);
   const errorLabel = useRef<Text>(null);
   useFormControl(fieldId, {
@@ -590,6 +598,7 @@ export function FormAnchor({
   return (
     <View
       ref={wrapper}
+      onTouchStart={blockSwipe}
       collapsable={false}
       accessible={false}
       style={[
@@ -757,8 +766,9 @@ export function ProgressSteps({
   testIDs?: string[];
   compact?: boolean;
 }) {
+  const blockSwipe = useBlockWorkflowSwipe();
   return (
-    <View style={{ flexDirection: "row", gap: 8 }}>
+    <View onTouchStart={blockSwipe} style={{ flexDirection: "row", gap: 8 }}>
       {steps.map((step, index) => {
         const done = completed.includes(index);
         const selected = index === current;
@@ -842,6 +852,7 @@ function ScrollSurface({
   scrollRef,
   bottomInset = 0,
   sheet = false,
+  gestureHandlers,
 }: PropsWithChildren<{
   form: FormNavigation;
   wide?: boolean;
@@ -849,10 +860,12 @@ function ScrollSurface({
   scrollRef?: React.RefObject<ScrollView | null>;
   bottomInset?: number;
   sheet?: boolean;
+  gestureHandlers?: GestureResponderHandlers;
 }>) {
   return (
     <FormNavigationContext.Provider value={form}>
       <KeyboardAvoidingView
+        {...gestureHandlers}
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
@@ -917,12 +930,14 @@ export function Screen({
   footer?: React.ReactNode;
 }>) {
   const localForm = useFormNavigation();
+  const gestureHandlers = useWorkflowGestureHandlers();
   return (
     <ScrollSurface
       form={form ?? localForm}
       wide={wide}
       scrollRef={scrollRef}
       footer={footer}
+      gestureHandlers={gestureHandlers}
     >
       {children}
     </ScrollSurface>
@@ -944,6 +959,7 @@ export function Sheet({
   form?: FormNavigation;
   footer?: React.ReactNode;
 }>) {
+  const blockSwipe = useBlockWorkflowSwipe();
   const insets = useSafeAreaInsets();
   const reduced = useReducedMotion();
   const localForm = useFormNavigation();
@@ -956,6 +972,7 @@ export function Sheet({
       onDismiss={onDismiss}
     >
       <View
+        onTouchStart={blockSwipe}
         style={{
           flex: 1,
           backgroundColor: C.bg,
@@ -1021,11 +1038,13 @@ export function LinkRow({
   url: string;
   icon?: IconName;
 }) {
+  const blockSwipe = useBlockWorkflowSwipe();
   const host = new URL(url).hostname;
   const government = host === "state.gov" || host.endsWith(".state.gov") || host === "www.govinfo.gov";
   const destination = `${government ? "Official government website" : "Website"} · ${host}`;
   return (
     <Pressable
+      onTouchStart={blockSwipe}
       accessibilityRole="link"
       accessibilityLabel={title}
       accessibilityHint={`Opens ${government ? "an official government website" : host} in the browser, outside your preparation.`}
