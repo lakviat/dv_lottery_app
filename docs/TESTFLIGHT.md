@@ -238,6 +238,67 @@ Check keyboard avoidance, sticky Continue, saved progress after relaunch, safe
 areas and portrait/landscape after introducing gestures. Native gesture behavior
 cannot be proven by the pure gesture tests.
 
+## UX and photo-system device checks
+
+**NOT BUILT LOCALLY.** Rebuild the same PR with the updated native module;
+reloading JavaScript into an older installed build does not add photo Vision
+analysis. File checks remain available in old builds/Expo Go, with visual checks
+explicitly unverified.
+
+1. Verify the three Home shortcuts look tappable and reopen the exact editable
+   steps. Check the outlined white **Choose passport photo** secondary button.
+2. Import several photos for each person. Select one, replace that selection,
+   relaunch, and confirm only one photo is current for each person. Prepare and
+   Review must show only the selected image.
+3. Delete an unselected photo: current selection and review must stay intact.
+   Delete a selected photo: no replacement is chosen, no stale reference remains,
+   and Photos becomes incomplete. Exercise deletion with a save/cleanup failure;
+   files must not be deleted before the record removal is saved.
+   While a photo is importing/checking/saving, try clear-all: it must require
+   finishing or cancelling that work. Once clear-all starts, new imports must
+   remain unavailable until cleanup completes.
+4. Inspect per-check results for prepared files: real JPEG signature, readability,
+   600 × 600 dimensions, square proportions and the 240,000-byte ceiling.
+   Imported large/non-square images may legitimately pass after crop/resize/
+   compression; results describe the prepared file, not the original input.
+5. Try clear and blurred portraits, no face, two people, off-center/turned heads,
+   eyes closed, grayscale and dark/busy backgrounds. Check that uncertain
+   estimates remain **Unable to verify** and failure offers **Try again** without
+   deleting the photo. Evaluate heuristic thresholds against actual devices and
+   images; synthetic tests do not establish computer-vision accuracy.
+6. Glasses, headphones, head coverings, full chin-to-hair head size and obstructions
+   need manual review; the app does not claim to detect them. Religious coverings
+   must not be categorically rejected. Confirm date, composition, non-reuse and
+   unaltered appearance. Only known technical failures block photo completion.
+7. View the source copy and prepared output. The source copy retains what the
+   picker returned after any user-selected crop. Confirm no beautification or
+   facial changes; undersized inputs must not be upscaled.
+8. Verify **Checking photo…** remains responsive, results persist, and merely
+   scrolling/reopening the library does not rerun analysis. Recheck explicitly.
+   Test changing/deleting a photo while a check is finishing, and picker cancel,
+   retake, camera/library permissions, source cleanup and photo sharing.
+   During **Saving photo…**, assignment, date, confirmation and recheck controls
+   must be disabled rather than accepting edits that would be discarded.
+9. Try normal 48pt swipes and short 24pt horizontal flicks in all four neighboring
+   directions. Confirm vertical scrolling, fields, selectors, sheets, edge/back
+   gestures and VoiceOver are not intercepted. Check slide/fade and active-node
+   feedback with Reduce Motion.
+10. Use Settings → **Show the step navigation hint again**. Confirm the short
+    hint appears; tapping does not mark swiping as learned. After a successful
+    swipe, relaunch and verify the hint stays hidden.
+11. Use **Reset preparation**: confirm the warning names the data being cleared.
+    Details, progress, review and selections reset; photo files and saved entry
+    records remain, with photos available to assign again.
+12. Normal name forms should have no prominent no-name switches. Under **Name
+    options**, enable one legal name: family name remains required, first name
+    may be empty, and the choice persists. Test one-name passport review/import.
+13. Upgrade from an existing v1/v2 draft/library and confirm all entries/images
+    and name tokens survive. Legacy preferred photos are selected once; the new
+    not-altered confirmation is unchecked. A v3 library with no selected photo
+    must remain unselected after relaunch.
+14. Inspect VoiceOver labels, selected/current badges, all destructive actions,
+    larger text, small iPhones, safe areas, keyboard avoidance and sticky Continue.
+
 ## Publication scope
 
 Uploading a build to TestFlight does not publish an App Store release. Begin with

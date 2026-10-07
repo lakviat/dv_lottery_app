@@ -32,10 +32,12 @@ completion checks, a current-step ring and short connector/check animations.
 Personal / Contact / Family remain a secondary navigation row.
 
 Tap a checkpoint or deliberately swipe horizontally on non-interactive Prepare
-content to move between main steps. Both use the same editable navigation;
-Continue still validates the current form. Swipes are excluded on controls,
-while editing with the keyboard, with VoiceOver, at screen edges and after
-vertical or multi-touch movement. No gesture/navigation dependency was added.
+content to move between main steps. Normal 48pt drags or short, clearly horizontal
+flicks now work; Continue still validates the current form. Swipes are excluded
+on controls, while editing with the keyboard, with VoiceOver, at screen edges and
+after vertical or multi-touch movement. A brief hint stops appearing after the
+first successful swipe, with a separate on-device preference. Settings can replay
+the hint. No gesture/navigation dependency was added.
 
 Validation maps list fields in screen order, so conditional controls cannot change
 which error is addressed first. iOS contact hints use supported `textContentType`
@@ -46,8 +48,17 @@ contact information, not on custom app contact storage.
 Secondary headers use page-specific titles without repeating the logo or saved
 subtitle. Save failures remain actionable on every tab. About & Settings keeps
 privacy, government non-affiliation and app details in expandable rows.
-Photo preparation lets users choose the person before capture; preparation and
-the photo library share the same real review/recency status labels.
+Photo preparation lets users choose the person before capture. Each person has
+one persisted selected photo; other photos remain available. Preparation and
+Review use only that selected photo, never a substitute from the library.
+Deleting a selected photo clears its association without choosing another.
+Reset preparation clears details/progress/selections but retains saved entries
+and the photo library, returning retained photos to an unassigned state.
+
+Normal name forms show first, optional middle and required family name. The
+discreet **Name options** control supports one legal name in the family field.
+Passport review canonicalizes a name without a separate family name before
+confirmation; legacy explicit no-family-name records migrate without losing tokens.
 
 Country matching is bundled locally in `countryNormalization.ts`; scanning
 never infers birthplace or eligibility from nationality. Unresolved passport
@@ -59,6 +70,40 @@ The round-2 polish is **NOT BUILT LOCALLY**. Earlier native results below descri
 earlier revisions, not this change. See the current record in
 [validation notes](docs/VALIDATION.md) and the
 [device checklist](docs/TESTFLIGHT.md#round-2-polish-device-checklist).
+
+### Photo selection and automated checks
+
+Prepared files are checked for actual image readability, JPEG signature, encoded
+600 × 600 dimensions, square proportions and a maximum of **240,000 bytes**.
+The existing local native module now also uses Apple Vision and bounded pixel
+samples for estimates of face count/centering, frontal pose, eye outlines, color,
+sharpness and a white/off-white background. These are heuristics, not approval.
+
+Full chin-to-hair head size (50–69%), exact eye height, glasses, headphones,
+coverings, obstructions, shadows/expression, age and retouching still require
+review or explicit confirmation. The app does not automatically detect accessories,
+decide religious exceptions, establish authenticity or guarantee acceptance.
+Low confidence is displayed as **Unable to verify**, not a definite rejection.
+Known technical failures block completion; uncertain/heuristic findings remain
+advisory once the user confirms the photo requirements.
+
+Results are structured, versioned and cached in the existing local records; image
+analysis runs on import or explicit **Check again**, not during list rendering.
+No images or facial measurements are sent to a service. Raw native observations
+are transient, and native analysis runs on a serial background queue.
+Expo Go/older installed builds keep file checks but show visual checks as unavailable
+until rebuilt with the updated local module.
+
+The system picker's source copy (after any crop chosen there) is retained separately
+from the app-prepared output. No beautification or generative editing is performed.
+Undersized inputs are not upscaled; they can be kept with technical warnings.
+Deleting a library photo saves the record removal before deleting its owned copies;
+startup cleanup removes only unreferenced generated photo files.
+
+Records now use schema **v3** with migration from v1/v2 and the same storage key.
+Legacy libraries inherit the photo previously preferred by the old presentation
+once; v3 never infers a selection. The new appearance-not-altered confirmation
+starts unchecked rather than inventing consent.
 
 ## Run in Expo Go
 
