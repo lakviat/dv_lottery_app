@@ -20,6 +20,8 @@ import {
   Screen,
   Stack,
   Title,
+  radius,
+  spacing,
   s,
 } from "./ui";
 
@@ -43,8 +45,9 @@ function QuickAction({
         flexDirection: "row",
         alignItems: "center",
         gap: 14,
-        paddingVertical: 16,
-        opacity: pressed ? 0.65 : 1,
+        paddingVertical: spacing.lg,
+        borderRadius: radius.input,
+        backgroundColor: pressed ? C.blueSoft : "transparent",
       })}
     >
       <View
@@ -109,7 +112,7 @@ export function HomeScreen({
         }}
       >
         <View style={{ flex: 1.15 }}>
-          <Card style={{ borderColor: "#D8E3FA", gap: 22 }}>
+          <Card style={{ borderColor: C.blueBorder, borderRadius: radius.hero, gap: spacing.xl }}>
             <Row>
               <Label>YOUR PREPARATION</Label>
               {progress.ready && <Badge tone="green">Reviewed</Badge>}
@@ -208,12 +211,11 @@ export function HomeScreen({
           flexDirection: "row",
           alignItems: "center",
           gap: 12,
-          backgroundColor: C.white,
+          backgroundColor: pressed ? C.blueSoft : C.white,
           borderRadius: 18,
           borderWidth: 1,
           borderColor: C.line,
           padding: 17,
-          opacity: pressed ? 0.7 : 1,
         })}
       >
         <Icon name="calendar-outline" color={C.blue} />

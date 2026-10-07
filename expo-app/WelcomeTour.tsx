@@ -11,7 +11,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
-import { Button, C, Icon, IconName } from "./ui";
+import { Button, C, Icon, IconName, typography } from "./ui";
 import { APP_NAME, BrandMark } from "./Brand";
 
 const pages = [
@@ -280,7 +280,7 @@ export function WelcomeTour({ onExit }: { onExit: () => void }) {
                   accessibilityRole="button"
                   accessibilityLabel="Back"
                   onPress={() => setPage((p) => Math.max(0, p - 1))}
-                  style={styles.back}
+                  style={({ pressed }) => [styles.back, pressed && { opacity: 0.7 }]}
                 >
                   <Icon name="chevron-back" size={18} />
                   <Text style={styles.backText}>Back</Text>
@@ -327,7 +327,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   skipText: { fontSize: 15, fontWeight: "600", color: C.blue },
-  pageCount: { fontSize: 13, color: C.muted, paddingRight: 8 },
+  pageCount: { ...typography.detail, color: C.muted, paddingRight: 8 },
   scroll: {
     flexGrow: 1,
     justifyContent: "center",
@@ -460,22 +460,17 @@ const styles = StyleSheet.create({
   compactText: { flex: 1, fontSize: 15, fontWeight: "600", color: C.navy },
   copy: { gap: 15, alignItems: "center" },
   eyebrow: {
-    fontSize: 10,
-    letterSpacing: 1.5,
-    fontWeight: "700",
+    ...typography.label,
     textAlign: "center",
     color: C.blue,
   },
   title: {
-    fontSize: 31,
-    lineHeight: 37,
-    letterSpacing: -0.8,
-    fontWeight: "700",
+    ...typography.page,
     color: C.navy,
     textAlign: "center",
   },
   body: { fontSize: 17, lineHeight: 25, color: C.navy, textAlign: "center" },
-  note: { fontSize: 13, lineHeight: 19, color: C.muted, textAlign: "center" },
+  note: { ...typography.detail, color: C.muted, textAlign: "center" },
   footer: { paddingHorizontal: 26, paddingTop: 15, backgroundColor: C.bg },
   footerContent: { maxWidth: 500, width: "100%", alignSelf: "center", gap: 21 },
   dots: {

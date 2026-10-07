@@ -101,10 +101,11 @@ export function Card({
         s.card,
         variant === "hero" && {
           backgroundColor: C.blueSoft,
-          borderColor: "#D5E2FC",
+          borderColor: C.blueBorder,
+          borderRadius: radius.hero,
           padding: spacing.xxl,
         },
-        variant === "feature" && { borderColor: "#D5E2FC" },
+        variant === "feature" && { borderColor: C.blueBorder },
         variant === "quiet" && {
           backgroundColor: "transparent",
           borderWidth: 0,
@@ -171,7 +172,7 @@ export function Badge({
             : C.blueSoft;
   return (
     <View style={[s.badge, { backgroundColor }]}>
-      <Text style={{ fontSize: 12, lineHeight: 17, fontWeight: "700", color }}>
+      <Text style={[typography.caption, { fontWeight: "700", color }]}>
         {children}
       </Text>
     </View>
@@ -189,6 +190,7 @@ export function Button({
   busy = false,
   testID,
   variant,
+  accessibilityHint,
 }: {
   title: string;
   onPress: () => void;
@@ -199,13 +201,14 @@ export function Button({
   busy?: boolean;
   testID?: string;
   variant?: ButtonVariant;
+  accessibilityHint?: string;
 }) {
   const reduced = useReducedMotion();
   const scale = useRef(new Animated.Value(1)).current;
   const kind =
     variant ?? (danger ? "destructive" : secondary ? "secondary" : "primary");
   const foreground =
-    kind === "tertiary" ? C.blue : kind === "secondary" ? C.navy : C.white;
+    disabled ? C.muted : kind === "tertiary" ? C.blue : kind === "secondary" ? C.navy : C.white;
   const animate = (value: number) =>
     Animated.timing(scale, {
       toValue: reduced ? 1 : value,
@@ -217,6 +220,7 @@ export function Button({
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={title}
+        accessibilityHint={accessibilityHint}
         accessibilityState={{ disabled: disabled || busy, busy }}
         testID={testID}
         disabled={disabled || busy}
@@ -227,14 +231,16 @@ export function Button({
           s.button,
           {
             backgroundColor:
-              kind === "secondary"
+              disabled
+                ? C.disabled
+                : kind === "secondary"
                 ? C.blueSoft
                 : kind === "tertiary"
                   ? "transparent"
                   : kind === "destructive"
                     ? C.red
-                    : C.navy,
-            opacity: disabled ? 0.45 : pressed ? 0.88 : 1,
+                    : pressed ? C.primaryPressed : C.navy,
+            opacity: pressed && kind !== "primary" ? 0.88 : 1,
           },
         ]}
       >
@@ -326,7 +332,7 @@ export function Field({
         style={[
           s.input,
           props.editable === false && { backgroundColor: C.bg, color: C.muted },
-          focused && { borderColor: C.blue, backgroundColor: "#FBFCFF" },
+          focused && { borderColor: C.blue, backgroundColor: C.inputFocused },
           error && { borderColor: C.red, borderWidth: 1.5 },
           props.multiline && { minHeight: 104, textAlignVertical: "top" },
           style,
@@ -492,7 +498,7 @@ export function Select({
             s.row,
             { gap: 10 },
             pressed && { backgroundColor: C.blueSoft },
-            disabled && { opacity: 0.5 },
+            disabled && { backgroundColor: C.disabled },
             error && { borderColor: C.red, borderWidth: 1.5 },
           ]}
         >
@@ -775,8 +781,8 @@ export function ProgressSteps({
                 flexDirection: compact ? "row" : "column",
                 alignItems: compact ? "center" : "flex-start",
                 gap: compact ? 6 : 8,
-                backgroundColor: selected ? C.blueSoft : "transparent",
-                borderColor: selected ? "#C7D9FF" : C.line,
+                backgroundColor: selected ? C.blueSoft : done ? C.successBg : "transparent",
+                borderColor: selected ? C.blueBorder : C.line,
                 borderWidth: compact ? 0 : 1,
                 opacity: pressed ? 0.8 : 1,
               },
@@ -802,7 +808,7 @@ export function ProgressSteps({
               ) : (
                 <Text
                   style={{
-                    fontSize: 12,
+                    ...typography.caption,
                     fontWeight: "700",
                     color: selected ? C.white : C.muted,
                   }}
@@ -813,8 +819,7 @@ export function ProgressSteps({
             </View>
             <Text
               style={{
-                fontSize: 12,
-                lineHeight: 17,
+                ...typography.caption,
                 fontWeight: "600",
                 flexShrink: 1,
                 color: selected ? C.blue : done ? C.green : C.muted,
@@ -975,7 +980,7 @@ export function Sheet({
             accessibilityLabel="Close"
             onPress={onClose}
             hitSlop={4}
-            style={s.close}
+            style={({ pressed }) => [s.close, pressed && { backgroundColor: C.blueSoft }]}
           >
             <Icon name="close" size={22} />
           </Pressable>
@@ -1016,10 +1021,14 @@ export function LinkRow({
   url: string;
   icon?: IconName;
 }) {
+  const host = new URL(url).hostname;
+  const government = host === "state.gov" || host.endsWith(".state.gov") || host === "www.govinfo.gov";
+  const destination = `${government ? "Official government website" : "Website"} · ${host}`;
   return (
     <Pressable
       accessibilityRole="link"
       accessibilityLabel={title}
+      accessibilityHint={`Opens ${government ? "an official government website" : host} in the browser, outside your preparation.`}
       onPress={() => void openOfficial(url)}
       style={({ pressed }) => [
         s.row,
@@ -1035,9 +1044,32 @@ export function LinkRow({
       <View style={{ flex: 1, gap: 3 }}>
         <Text style={s.fieldLabel}>{title}</Text>
         {detail && <Text style={s.small}>{detail}</Text>}
+        <Text style={[typography.caption, { color: C.muted }]}>{destination}</Text>
       </View>
       <Icon name="open-outline" size={18} color={C.muted} />
     </Pressable>
+  );
+}
+export function Disclosure({ title, children }: PropsWithChildren<{ title: string }>) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <View style={{ gap: expanded ? spacing.md : 0 }}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={title}
+        accessibilityState={{ expanded }}
+        onPress={() => setExpanded((value) => !value)}
+        style={({ pressed }) => [
+          s.row,
+          { minHeight: 48, gap: spacing.md, paddingVertical: spacing.sm },
+          pressed && { backgroundColor: C.blueSoft },
+        ]}
+      >
+        <Text style={[s.fieldLabel, { flex: 1 }]}>{title}</Text>
+        <Icon name={expanded ? "chevron-up" : "chevron-forward"} size={18} />
+      </Pressable>
+      {expanded && <View style={{ gap: spacing.md }}>{children}</View>}
+    </View>
   );
 }
 export const s = StyleSheet.create({
@@ -1055,13 +1087,7 @@ export const s = StyleSheet.create({
     justifyContent: "space-between",
   },
   title: { ...typography.title, color: C.navy },
-  sectionTitle: {
-    fontSize: 18,
-    lineHeight: 25,
-    letterSpacing: -0.2,
-    fontWeight: "700",
-    color: C.navy,
-  },
+  sectionTitle: { ...typography.section, color: C.navy },
   body: { ...typography.body, color: C.navy },
   small: { ...typography.detail, color: C.muted },
   label: { ...typography.label, color: C.blue, textTransform: "uppercase" },
@@ -1089,9 +1115,7 @@ export const s = StyleSheet.create({
     gap: 9,
   },
   buttonText: {
-    fontSize: 16,
-    lineHeight: 22,
-    fontWeight: "700",
+    ...typography.button,
     flexShrink: 1,
     textAlign: "center",
   },
@@ -1136,7 +1160,7 @@ export const s = StyleSheet.create({
     alignItems: "center",
   },
   keyboardToolbar: {
-    backgroundColor: "#F7F9FC",
+    backgroundColor: C.bg,
     borderTopWidth: 1,
     borderTopColor: C.line,
     alignItems: "flex-end",

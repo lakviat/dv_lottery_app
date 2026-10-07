@@ -4,6 +4,10 @@ export const colors = {
   blue: "#245EDE",
   cobalt: "#245EDE",
   blueSoft: "#EDF3FF",
+  blueBorder: "#D5E2FC",
+  primaryPressed: "#203F63",
+  inputFocused: "#FBFCFF",
+  disabled: "#E1E7F0",
   red: "#B52F3D",
   dangerSoft: "#FFF1F2",
   bg: "#F5F7FB",
@@ -26,7 +30,7 @@ export const spacing = {
   xxl: 24,
   section: 32,
 };
-export const radius = { sm: 8, input: 14, button: 16, card: 24, pill: 100 };
+export const radius = { sm: 8, input: 14, button: 16, card: 20, hero: 24, pill: 100 };
 export const typography = {
   page: {
     fontSize: 32,
@@ -41,10 +45,18 @@ export const typography = {
     letterSpacing: -0.45,
   },
   body: { fontSize: 16, lineHeight: 24 },
-  detail: { fontSize: 13, lineHeight: 19 },
+  detail: { fontSize: 14, lineHeight: 20 },
+  caption: { fontSize: 13, lineHeight: 18 },
+  section: {
+    fontSize: 18,
+    lineHeight: 25,
+    letterSpacing: -0.2,
+    fontWeight: "700" as const,
+  },
+  button: { fontSize: 16, lineHeight: 22, fontWeight: "700" as const },
   label: {
-    fontSize: 11,
-    lineHeight: 16,
+    fontSize: 12,
+    lineHeight: 17,
     letterSpacing: 1.5,
     fontWeight: "700" as const,
   },
