@@ -11,6 +11,8 @@ import {
   detailsFieldErrors,
   familyAddOptions,
   personFieldID,
+  photoFieldErrors,
+  preparationCompletion,
   preparationProgress,
   reviewFieldErrors,
 } from "./preparation";
@@ -64,6 +66,20 @@ test("contact errors target the actual field, clear on correction, and honor no 
   });
   assert.equal(detailsIssues(r.draft, "contact").length > 0, true);
 });
+test("contact validation follows the visible order including postal code before country", () => {
+  assert.deepEqual(Object.keys(detailsFieldErrors(makeRecords().draft, "contact")), [
+    "email", "address", "city", "province", "postal", "country", "residence",
+  ]);
+});
+test("family details precede the missing-spouse action in validation order", () => {
+  const r = validPersonal();
+  r.draft.marital = "Married — spouse is not a U.S. citizen / LPR";
+  const child = makePerson("Child");
+  r.draft.people.push(child);
+  const keys = Object.keys(detailsFieldErrors(r.draft, "family"));
+  assert.equal(keys[0], personFieldID(child.id, "first"));
+  assert.ok(keys.indexOf("familyMembers") > keys.indexOf(personFieldID(child.id, "country")));
+});
 test("Home next action follows actual checklist completeness including expiry", () => {
   const r = validPersonal();
   assert.equal(preparationProgress(r).section, "contact");
@@ -88,7 +104,9 @@ test("Home next action follows actual checklist completeness including expiry", 
     bytes: 1200,
     composition: true,
     notReused: true,
+    notAltered: true,
   });
+  r.draft.people[0].selectedPhotoId = "photo";
   assert.equal(preparationProgress(r).step, 2);
   Object.assign(r.draft, {
     eligibilityCountry: "Kyrgyzstan",
@@ -98,11 +116,51 @@ test("Home next action follows actual checklist completeness including expiry", 
     passportReviewed: true,
     reviewed: true,
   });
+
   assert.deepEqual(reviewFieldErrors(r.draft), {});
   assert.equal(preparationProgress(r).ready, true);
+  assert.deepEqual(preparationCompletion(r.draft, r.photos), [true, true, true]);
+  r.draft.education = "";
+  r.draft.reviewed = false;
+  assert.deepEqual(preparationCompletion(r.draft, r.photos), [false, true, false]);
+  assert.deepEqual(preparationProgress(r).completed, preparationCompletion(r.draft, r.photos));
+  r.draft.education = "High school degree";
+  r.draft.reviewed = true;
   r.photos[0].takenOn = "2000-01-01";
+  assert.deepEqual(preparationCompletion(r.draft, r.photos), [true, false, true]);
   assert.equal(preparationProgress(r).ready, false);
   assert.equal(preparationProgress(r).step, 1);
+});
+
+test("photo errors and checklist use selection rather than a reviewed library alternative", () => {
+  const r = validPersonal();
+  const person = r.draft.people[0];
+  r.photos.push({
+    id: "ready", personId: person.id, name: "Example", uri: "file:///photo.jpg",
+    takenOn: today(), bytes: 12000,
+    composition: true, notReused: true, notAltered: true,
+  });
+  r.photos.push({ ...r.photos[0], id: "unreviewed", notAltered: false });
+  for (const selectedPhotoId of ["", "missing", "unreviewed"]) {
+    person.selectedPhotoId = selectedPhotoId;
+    assert.deepEqual(Object.keys(photoFieldErrors(r.draft, r.photos)), [`photo-${person.id}`]);
+    assert.equal(draftIssues(r.draft, r.photos, 1).length, 1);
+  }
+  person.selectedPhotoId = "ready";
+  assert.deepEqual(photoFieldErrors(r.draft, r.photos), {});
+  assert.deepEqual(draftIssues(r.draft, r.photos, 1), []);
+  r.photos[0].analysis = {
+    version: 1, checkedAt: "2026-10-06T12:00:00.000Z",
+    checks: [{
+      id: "dimensions", label: "Dimensions", kind: "technical",
+      state: "attention", detail: "Too small.",
+    }],
+  };
+  assert.equal(Object.keys(photoFieldErrors(r.draft, r.photos)).length, 1);
+  assert.equal(draftIssues(r.draft, r.photos, 1).length, 1);
+  r.photos[0].analysis.checks[0].kind = "heuristic";
+  assert.deepEqual(photoFieldErrors(r.draft, r.photos), {});
+  assert.deepEqual(draftIssues(r.draft, r.photos, 1), []);
 });
 test("field errors agree with existing checklist requirements", () => {
   const r = validPersonal();

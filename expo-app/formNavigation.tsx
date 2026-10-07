@@ -2,6 +2,7 @@ import React, {
   createContext,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useSyncExternalStore,
@@ -13,8 +14,9 @@ import {
   ScrollView,
   View,
 } from "react-native";
+import { firstInvalidField, FormErrors } from "./formValidation";
 
-export type FormErrors = Record<string, string | undefined>;
+export type { FormErrors } from "./formValidation";
 type Measurable = React.ElementRef<typeof View>;
 type Control = {
   node: () => Measurable | null;
@@ -50,9 +52,8 @@ export function useFormNavigation(): FormNavigation {
   const active = useRef<string | undefined>(undefined);
   const reducedMotion = useRef(true);
   const mounted = useRef(true);
-  const scheduled = useRef<ReturnType<typeof setTimeout> | undefined>(
-    undefined,
-  );
+  const scheduled = useRef<number | undefined>(undefined);
+  const focusRequest = useRef(0);
   const controller = useMemo<FormNavigation>(() => {
     const notifyRegistry = () => {
       registryVersion.current += 1;
@@ -66,7 +67,7 @@ export function useFormNavigation(): FormNavigation {
       if (!node || !scroll || !viewport) return;
       node.measureInWindow((_x, fieldY, _w, fieldHeight) => {
         viewport.measureInWindow((_sx, viewportY, _sw, viewportHeight) => {
-          if (!mounted.current || viewportHeight <= 0) return;
+          if (!mounted.current || active.current !== id || viewportHeight <= 0) return;
           const top = fieldY - viewportY;
           const bottom = top + fieldHeight;
           const inset = 18;
@@ -148,41 +149,26 @@ export function useFormNavigation(): FormNavigation {
         }
       },
       focusFirst: (providedErrors) => {
-        const errors =
-          providedErrors ??
-          Object.fromEntries(
-            [...controls.current].map(([id, control]) => [id, control.error()]),
-          );
-        if (scheduled.current) clearTimeout(scheduled.current);
-        // React must commit inline errors before measuring the actual visible order.
-        scheduled.current = setTimeout(() => {
-          if (!mounted.current) return;
-          const candidates = [...controls.current].filter(
-            ([id]) => !!errors[id],
-          );
-          if (!candidates.length) {
+        if (scheduled.current !== undefined) cancelAnimationFrame(scheduled.current);
+        const request = ++focusRequest.current;
+        // Commit inline errors first; don't wait for every offscreen native measure.
+        scheduled.current = requestAnimationFrame(() => {
+          scheduled.current = undefined;
+          if (!mounted.current || request !== focusRequest.current) return;
+          const errors =
+            providedErrors ??
+            Object.fromEntries(
+              [...controls.current].map(([id, control]) => [id, control.error()]),
+            );
+          const first = firstInvalidField(errors, new Set(controls.current.keys()));
+          if (first) {
+            focus(first, errors[first]);
+          } else {
             const firstError = Object.values(errors).find(Boolean);
             if (firstError)
               AccessibilityInfo.announceForAccessibility(firstError);
-            return;
           }
-          Promise.all(
-            candidates.map(
-              ([id, control], index) =>
-                new Promise<{ id: string; y: number }>((resolve) => {
-                  const node = control.node();
-                  if (!node)
-                    return resolve({ id, y: Number.MAX_SAFE_INTEGER + index });
-                  node.measureInWindow((_x, y) => resolve({ id, y }));
-                }),
-            ),
-          ).then((positions) => {
-            if (!mounted.current) return;
-            positions.sort((a, b) => a.y - b.y);
-            const first = positions[0];
-            if (first) focus(first.id, errors[first.id]);
-          });
-        }, 60);
+        });
       },
     };
   }, []);
@@ -205,11 +191,18 @@ export function useFormNavigation(): FormNavigation {
         if (active.current) controller.reveal(active.current);
       });
     });
+    const keyboardFrame = Keyboard.addListener("keyboardDidChangeFrame", () => {
+      requestAnimationFrame(() => {
+        if (mounted.current && active.current) controller.reveal(active.current);
+      });
+    });
     return () => {
       mounted.current = false;
-      if (scheduled.current) clearTimeout(scheduled.current);
+      focusRequest.current += 1;
+      if (scheduled.current !== undefined) cancelAnimationFrame(scheduled.current);
       preference.remove();
       keyboard.remove();
+      keyboardFrame.remove();
     };
   }, [controller]);
   return controller;
@@ -224,7 +217,7 @@ export function useFormControl(id: string, control: Control) {
   );
   const current = useRef(control);
   current.current = control;
-  useEffect(
+  useLayoutEffect(
     () =>
       form?.register(id, {
         node: () => current.current.node(),

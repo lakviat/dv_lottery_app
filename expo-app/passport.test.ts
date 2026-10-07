@@ -1,7 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { applyPassport, mrzCheckDigit, parsePassport, passportFieldCount } from "./passport";
-import { makeDraft, makePerson } from "./models";
+import {
+  applyPassport,
+  mrzCheckDigit,
+  parsePassport,
+  passportFieldCount,
+  passportScanErrorMessage,
+  unresolvedPassportCountries,
+} from "./passport";
+import { makeDraft, makePerson, personErrors } from "./models";
 
 // Public ICAO specimen: fictional Utopia passport, never a user's document.
 const first = "P<UTOERIKSSON<<ANNA<MARIA<<<<<<<<<<<<<<<<<<<";
@@ -67,6 +74,7 @@ test("confirmed import preserves birthplace, eligibility, family, photos readine
   const d = makeDraft();
   d.people[0].city = "Existing birthplace";
   d.people[0].country = "Canada";
+  d.people[0].selectedPhotoId = "existing-photo";
   d.eligibilityCountry = "Canada";
   d.email = "example@example.com";
   d.people.push(makePerson("Child"));
@@ -76,6 +84,7 @@ test("confirmed import preserves birthplace, eligibility, family, photos readine
   assert.deepEqual(d, copy);
   assert.equal(result.people[0].country, "Canada");
   assert.equal(result.people[0].city, "Existing birthplace");
+  assert.equal(result.people[0].selectedPhotoId, "existing-photo");
   assert.equal(result.eligibilityCountry, "Canada");
   assert.deepEqual(result.people[1], copy.people[1]);
   assert.equal(result.email, d.email);
@@ -99,10 +108,58 @@ test("confirmed import maps nationality and issuer without inferring birthplace 
   assert.equal(result.people[0].first, "ANNA");
   assert.equal(result.people[0].middle, "MARIA");
   assert.equal(result.people[0].last, "ERIKSSON");
+  assert.equal(result.people[0].oneLegalName, false);
   assert.equal(result.people[0].dob, "1974-08-12");
   assert.equal(result.people[0].sex, "Female");
   assert.equal(result.passport.number, "L898902C3");
   assert.equal(result.passport.expires, "2012-04-15");
+});
+
+test("one-name passport review and import use the required family-name representation", () => {
+  for (const nameLine of [
+    "P<UTOMONONYM<<".padEnd(44, "<"),
+    "P<UTO<<MONONYM".padEnd(44, "<"),
+  ]) {
+    const reading = parsePassport([nameLine, second]);
+    assert.equal(reading.first, "");
+    assert.equal(reading.middle, "");
+    assert.equal(reading.last, "MONONYM");
+    const result = applyPassport(makeDraft(), reading);
+    assert.equal(result.people[0].oneLegalName, true);
+    assert.equal(result.people[0].first, "");
+    assert.equal(result.people[0].last, "MONONYM");
+    assert.equal(personErrors(result.people[0]).first, undefined);
+    assert.equal(personErrors(result.people[0]).last, undefined);
+  }
+});
+
+test("name canonicalization does not hide multiple distinct passport readings", () => {
+  assert.throws(() => parsePassport([
+    "P<UTOMONONYM<<".padEnd(44, "<"),
+    "P<UTO<<MONONYM".padEnd(44, "<"),
+    second,
+  ]), /More than one passport/);
+});
+
+test("passport name canonicalization preserves all tokens before review and confirmed import", () => {
+  const reading = parsePassport([
+    "P<UTO<<ALPHA<BETA<GAMMA".padEnd(44, "<"),
+    second,
+  ]);
+  assert.equal(reading.first, "");
+  assert.equal(reading.middle, "");
+  assert.equal(reading.last, "ALPHA BETA GAMMA");
+  const before = structuredClone(reading);
+  const result = applyPassport(makeDraft(), reading);
+  assert.equal(result.people[0].last, "ALPHA BETA GAMMA");
+  assert.equal(result.people[0].oneLegalName, true);
+  assert.deepEqual(reading, before);
+  const directReading = { ...reading, first: " ALPHA BETA ", middle: " GAMMA ", last: "" };
+  const imported = applyPassport(makeDraft(), directReading);
+  assert.equal(imported.people[0].last, "ALPHA BETA GAMMA");
+  assert.equal(imported.people[0].first, "");
+  assert.equal(imported.people[0].middle, "");
+  assert.equal(passportFieldCount(directReading), passportFieldCount(reading));
 });
 
 test("unknown nationality/authority or sex never erases user values during confirmed import", () => {
@@ -131,4 +188,79 @@ test("reviewed human-readable country values use the same canonical mapping", ()
   const result = applyPassport(makeDraft(), reading);
   assert.equal(result.passport.issuer, "Kyrgyzstan");
   assert.equal(result.passport.nationality, "Kyrgyzstan");
+});
+
+test("only unresolved country fields require explicit keep-unchanged confirmation", () => {
+  const reading = parsePassport([first, second]);
+  assert.deepEqual(unresolvedPassportCountries(reading), [
+    "issuing country",
+    "nationality",
+  ]);
+  assert.deepEqual(
+    unresolvedPassportCountries({
+      ...reading,
+      issuer: "Kyrgyz Republic",
+      nationality: "kg",
+    }),
+    [],
+  );
+  assert.deepEqual(
+    unresolvedPassportCountries({
+      ...reading,
+      issuer: "Korea",
+      nationality: "CAN",
+    }),
+    ["issuing country"],
+  );
+  assert.deepEqual(
+    unresolvedPassportCountries({
+      ...reading,
+      issuer: "DEU",
+      nationality: "",
+    }),
+    ["nationality"],
+  );
+});
+
+test("ambiguous countries do not replace manually edited countries on confirmed import", () => {
+  const draft = makeDraft();
+  draft.passport.issuer = "Canada";
+  draft.passport.nationality = "Germany";
+  const before = structuredClone(draft);
+  const reading = {
+    ...parsePassport([first, second]),
+    issuer: "Congo",
+    nationality: "Korea",
+  };
+  const result = applyPassport(draft, reading);
+  assert.equal(result.passport.issuer, before.passport.issuer);
+  assert.equal(result.passport.nationality, before.passport.nationality);
+  assert.equal(passportFieldCount(reading), 7);
+  assert.deepEqual(draft, before);
+});
+
+test("scan failures show actionable guidance without exposing native error details", () => {
+  const fallback = passportScanErrorMessage(undefined);
+  assert.match(fallback, /clear photo/);
+  assert.match(fallback, /manually/);
+  for (const error of [
+    new Error("Native recognizer failure: internal diagnostic"),
+    { message: "Native recognizer failure: internal diagnostic" },
+    "Native recognizer failure: internal diagnostic",
+    null,
+  ]) {
+    assert.equal(passportScanErrorMessage(error), fallback);
+  }
+  for (const [lines, message] of [
+    [[], /both passport lines/],
+    [[first, first.replace("ANNA", "JANE"), second], /More than one passport/],
+  ] as [string[], RegExp][]) {
+    assert.throws(
+      () => parsePassport(lines),
+      (error: unknown) => {
+        assert.match(passportScanErrorMessage(error), message);
+        return true;
+      },
+    );
+  }
 });

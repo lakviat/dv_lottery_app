@@ -13,5 +13,10 @@ public class PassportReaderModule: Module {
       }
       return try PassportTextRecognizer.recognize(url)
     }.runOnQueue(DispatchQueue(label: "dvlottery.passport-recognition", qos: .userInitiated))
+    AsyncFunction("analyzePhoto") { (uri: String) -> [String: Double] in
+      try autoreleasepool {
+        try PhotoAnalyzer.analyze(uri)
+      }
+    }.runOnQueue(DispatchQueue(label: "dvlottery.photo-analysis", qos: .userInitiated))
   }
 }

@@ -60,7 +60,13 @@ export function entryFieldErrors(
   if (!attested)
     errors.attested =
       "Confirm this entry has already been submitted on the official portal.";
-  return errors;
+  const ordered: EntryFieldErrors = {};
+  for (const key of [
+    "name", "surname", "birthYear", "year", "confirmation", "submitted", "attested",
+  ] as const) {
+    if (errors[key]) ordered[key] = errors[key];
+  }
+  return ordered;
 }
 
 export function timelineFieldErrors(

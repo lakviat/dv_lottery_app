@@ -1,9 +1,15 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Alert, Linking, Text, View } from "react-native";
+import { AccessibilityInfo, Alert, Linking, Text, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import PassportReader from "../modules/passport-reader";
-import { PassportReading, parsePassport, passportFieldCount } from "./passport";
+import {
+  PassportReading,
+  parsePassport,
+  passportFieldCount,
+  passportScanErrorMessage,
+  unresolvedPassportCountries,
+} from "./passport";
 import { normalizeCountry } from "./countryNormalization";
 import countries from "./countries.json";
 import {
@@ -45,7 +51,11 @@ export function PassportCapture({
   currentName: string;
   onManual?: () => void;
 }) {
-  const [busy, setBusy] = useState(false);
+  const [scan, setScan] = useState<{
+    source: "camera" | "photo";
+    reading: boolean;
+  } | null>(null);
+  const busy = scan !== null;
   const [reading, setReading] = useState<PassportReading | null>(null);
   const [rawCountries, setRawCountries] = useState({
     issuer: "",
@@ -53,6 +63,9 @@ export function PassportCapture({
   });
   const [editing, setEditing] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
+  const unresolvedCountries = reading
+    ? unresolvedPassportCountries(reading)
+    : [];
   const form = useFormNavigation();
   const alive = useRef(true);
   const inFlight = useRef(false);
@@ -73,9 +86,9 @@ export function PassportCapture({
   };
   const errors: Record<string, string | undefined> = reading
     ? {
-        "scan.first":
-          !reading.first.trim() && !reading.last.trim()
-            ? "Enter at least one name as shown on your passport."
+        "scan.last":
+          !reading.last.trim()
+            ? "Enter your last / family name. If you have one legal name, enter the complete name here."
             : undefined,
         "scan.dob": !validPastDate(normalizeBirthDate(reading.dob))
           ? "Enter a valid birth date using MM/DD/YYYY."
@@ -93,7 +106,7 @@ export function PassportCapture({
     if (Object.values(errors).some(Boolean)) {
       setEditing(true);
       form.focusFirst(errors);
-      feedback("error");
+      void feedback("error");
       return false;
     }
     return true;
@@ -106,13 +119,21 @@ export function PassportCapture({
       expires: normalizeBirthDate(reading.expires),
     };
     Alert.alert(
-      "Use these passport details?",
-      `This will replace ${currentName}’s name, birth date and recognized passport details. Birthplace, contact details and family information stay as you entered them.`,
+      unresolvedCountries.length
+        ? "Some countries need confirmation"
+        : "Use these passport details?",
+      (unresolvedCountries.length
+        ? `We couldn’t confirm ${unresolvedCountries.join(" and ")}. Existing values for these fields will be kept; check them manually before relying on them.\n\n`
+        : "") +
+        `This will replace ${currentName}’s name, birth date, sex (if read) and recognized passport details. Birthplace, contact details and family information stay as you entered them.`,
       [
         { text: "Keep reviewing", style: "cancel" },
         {
-          text: "Replace details",
+          text: unresolvedCountries.length
+            ? "Use other details"
+            : "Replace details",
           onPress: () => {
+            if (!alive.current) return;
             onUse(confirmed);
             close();
           },
@@ -130,12 +151,14 @@ export function PassportCapture({
       return;
     }
     inFlight.current = true;
-    setBusy(true);
+    const source = camera ? "camera" : "photo";
+    setScan({ source, reading: false });
     let pickedURI = "";
     let scanURI = "";
     try {
       if (camera) {
         const permission = await ImagePicker.requestCameraPermissionsAsync();
+        if (!alive.current) return;
         if (!permission.granted) {
           Alert.alert(
             "Allow camera access",
@@ -144,7 +167,15 @@ export function PassportCapture({
               { text: "Not now", style: "cancel" },
               {
                 text: "Open Settings",
-                onPress: () => void Linking.openSettings(),
+                onPress: () => {
+                  void Linking.openSettings().catch(() => {
+                    if (alive.current)
+                      Alert.alert(
+                        "Open Settings manually",
+                        "In your device Settings, allow camera access for this app, then try again. You can also choose an existing photo.",
+                      );
+                  });
+                },
               },
             ],
           );
@@ -162,17 +193,23 @@ export function PassportCapture({
         : await ImagePicker.launchImageLibraryAsync(options);
       if (result.canceled || !result.assets.length) return;
       pickedURI = result.assets[0].uri;
+      if (!alive.current) return;
       if (
         !FileSystem.cacheDirectory ||
         !pickedURI.startsWith(FileSystem.cacheDirectory)
       ) {
         throw new Error("Please choose a photo using the system photo picker.");
       }
+      setScan({ source, reading: true });
+      AccessibilityInfo.announceForAccessibility(
+        "Reading passport on this device.",
+      );
       await FileSystem.makeDirectoryAsync(scanDirectory, {
         intermediates: true,
       });
       scanURI = `${scanDirectory}${Date.now()}.jpg`;
       await FileSystem.moveAsync({ from: pickedURI, to: scanURI });
+      if (!alive.current) return;
       const lines = await PassportReader.recognize(scanURI);
       const extracted = parsePassport(lines);
       if (alive.current) {
@@ -187,16 +224,13 @@ export function PassportCapture({
         });
         setEditing(false);
         setShowErrors(false);
-        feedback("success");
+        void feedback("success");
       }
     } catch (e) {
-      if (alive.current)
-        Alert.alert(
-          "Passport could not be read",
-          e instanceof Error
-            ? e.message
-            : "Try a clearer image, or enter your details manually.",
-        );
+      if (alive.current) {
+        void feedback("error");
+        Alert.alert("Passport could not be read", passportScanErrorMessage(e));
+      }
     } finally {
       // Remove only the picker’s temporary copy, never the user’s Photos original.
       for (const uri of [pickedURI, scanURI]) {
@@ -211,7 +245,7 @@ export function PassportCapture({
         }
       }
       inFlight.current = false;
-      if (alive.current) setBusy(false);
+      if (alive.current) setScan(null);
     }
   };
   return (
@@ -242,23 +276,37 @@ export function PassportCapture({
         <View style={{ gap: 8 }}>
           <Title>Scan your passport</Title>
           <Body>
-            Let your passport fill in your name, birth date and passport
-            details.
+            Read your name, birth date and passport details, then review before
+            replacing anything in your draft.
           </Body>
         </View>
         <Button
           testID="passport-camera"
-          title="Scan passport"
+          title={
+            scan?.source === "camera"
+              ? scan.reading
+                ? "Reading passport…"
+                : "Opening camera…"
+              : "Scan passport"
+          }
           icon="camera-outline"
-          busy={busy}
+          busy={scan?.source === "camera"}
+          disabled={scan?.source === "photo"}
           onPress={() => void pick(true)}
         />
         <Button
           testID="passport-upload"
           secondary
-          title="Choose passport photo"
+          title={
+            scan?.source === "photo"
+              ? scan.reading
+                ? "Reading passport…"
+                : "Opening photos…"
+              : "Choose passport photo"
+          }
           icon="image-outline"
-          disabled={busy}
+          busy={scan?.source === "photo"}
+          disabled={scan?.source === "camera"}
           onPress={() => void pick(false)}
         />
         <Text style={s.small}>
@@ -344,7 +392,10 @@ export function PassportCapture({
                   }}
                 >
                   <View style={{ gap: 6 }}>
-                    <Text style={[s.title, { fontSize: 25 }]}>
+                    <Text
+                      accessibilityRole="header"
+                      style={[s.title, { fontSize: 25 }]}
+                    >
                       {[reading.first, reading.middle, reading.last]
                         .filter(Boolean)
                         .join(" ")}
@@ -354,6 +405,13 @@ export function PassportCapture({
                       {displayBirthDate(reading.dob)}
                     </Text>
                   </View>
+                  <Fact label="Last / family name" value={reading.last} />
+                  {!reading.first.trim() && !reading.middle.trim() && (
+                    <Text style={s.small}>
+                      Your one legal name will be entered as your last / family
+                      name. First and middle names will stay blank.
+                    </Text>
+                  )}
                   <Fact
                     label="Nationality"
                     value={reading.nationality || "Confirm nationality"}
@@ -370,7 +428,8 @@ export function PassportCapture({
                 </View>
                 <Text style={s.small}>
                   Check the spelling, first and middle name split, and full
-                  birth year against your passport.
+                  birth year against your passport. Nothing has changed in your
+                  draft yet.
                 </Text>
                 <Button
                   testID="passport-edit"
@@ -386,12 +445,12 @@ export function PassportCapture({
                   <Field
                     fieldId="scan.first"
                     testID="passport-review-first"
-                    label="First / given name"
+                    label="First / given name (if any)"
                     value={reading.first}
                     onChangeText={(v) => set("first", v)}
                     textContentType="givenName"
                     autoCapitalize="words"
-                    error={showErrors ? errors["scan.first"] : undefined}
+                    spellCheck={false}
                   />
                   <Field
                     fieldId="scan.middle"
@@ -401,6 +460,7 @@ export function PassportCapture({
                     onChangeText={(v) => set("middle", v)}
                     textContentType="middleName"
                     autoCapitalize="words"
+                    spellCheck={false}
                   />
                   <Field
                     fieldId="scan.last"
@@ -410,6 +470,8 @@ export function PassportCapture({
                     onChangeText={(v) => set("last", v)}
                     textContentType="familyName"
                     autoCapitalize="words"
+                    spellCheck={false}
+                    error={showErrors ? errors["scan.last"] : undefined}
                   />
                 </FormSection>
                 <FormSection title="Birth information">
@@ -419,6 +481,9 @@ export function PassportCapture({
                     value={displayBirthDate(reading.dob)}
                     onChangeText={(v) => set("dob", v)}
                     keyboardType="numbers-and-punctuation"
+                    textContentType="none"
+                    autoComplete="off"
+                    spellCheck={false}
                     maxLength={10}
                     error={showErrors ? errors["scan.dob"] : undefined}
                   />
@@ -437,6 +502,9 @@ export function PassportCapture({
                     value={reading.number}
                     onChangeText={(v) => set("number", v.toUpperCase())}
                     autoCapitalize="characters"
+                    textContentType="none"
+                    autoComplete="off"
+                    spellCheck={false}
                     error={showErrors ? errors["scan.number"] : undefined}
                   />
                   <Select
@@ -461,6 +529,9 @@ export function PassportCapture({
                     value={displayBirthDate(reading.expires)}
                     onChangeText={(v) => set("expires", v)}
                     keyboardType="numbers-and-punctuation"
+                    textContentType="none"
+                    autoComplete="off"
+                    spellCheck={false}
                     maxLength={10}
                     error={showErrors ? errors["scan.expires"] : undefined}
                   />
@@ -475,8 +546,11 @@ export function PassportCapture({
                 {!reading.nationality
                   ? `Nationality${rawCountries.nationality ? ` (${rawCountries.nationality})` : ""} could not be matched. `
                   : ""}
-                Choose Edit details to confirm. If the passport uses a special
-                authority or stateless code, leave that country unselected.
+                {editing
+                  ? "Choose the matching country above. "
+                  : "Choose Edit details to confirm. "}
+                If the passport uses a special authority or stateless code,
+                leave that country unselected.
                 Existing country details will be kept.
               </Notice>
             )}
@@ -495,7 +569,11 @@ export function PassportCapture({
 
 function Fact({ label, value }: { label: string; value: string }) {
   return (
-    <View style={{ gap: 4 }}>
+    <View
+      accessible
+      accessibilityLabel={`${label}: ${value}`}
+      style={{ gap: 4 }}
+    >
       <Text style={s.small}>{label}</Text>
       <Text style={s.fieldLabel}>{value}</Text>
     </View>

@@ -15,11 +15,13 @@ import {
   Notice,
   PageHeading,
   ProgressBar,
-  ProgressSteps,
   Row,
   Screen,
   Stack,
   Title,
+  radius,
+  spacing,
+  typography,
   s,
 } from "./ui";
 
@@ -43,8 +45,9 @@ function QuickAction({
         flexDirection: "row",
         alignItems: "center",
         gap: 14,
-        paddingVertical: 16,
-        opacity: pressed ? 0.65 : 1,
+        paddingVertical: spacing.lg,
+        borderRadius: radius.input,
+        backgroundColor: pressed ? C.blueSoft : "transparent",
       })}
     >
       <View
@@ -71,6 +74,7 @@ function QuickAction({
 export function HomeScreen({
   records,
   apply,
+  openStep,
   scan,
   photos,
   entries,
@@ -80,6 +84,7 @@ export function HomeScreen({
 }: {
   records: Records;
   apply: () => void;
+  openStep: (step: number) => void;
   scan: () => void;
   photos: () => void;
   entries: () => void;
@@ -92,7 +97,6 @@ export function HomeScreen({
   return (
     <Screen wide>
       <PageHeading
-        eyebrow="YOUR DV JOURNEY"
         title={
           progress.ready ? "Ready for your next step" : "Prepare your entry"
         }
@@ -109,7 +113,7 @@ export function HomeScreen({
         }}
       >
         <View style={{ flex: 1.15 }}>
-          <Card style={{ borderColor: "#D8E3FA", gap: 22 }}>
+          <Card style={{ borderColor: C.blueBorder, borderRadius: radius.hero, gap: spacing.xl }}>
             <Row>
               <Label>YOUR PREPARATION</Label>
               {progress.ready && <Badge tone="green">Reviewed</Badge>}
@@ -138,30 +142,48 @@ export function HomeScreen({
               </Text>
             </View>
             <ProgressBar value={progress.count / 3} />
-            <ProgressSteps
-              steps={steps}
-              current={progress.step}
-              completed={progress.completed.flatMap((done, i) =>
-                done ? [i] : [],
-              )}
-            />
+            <View style={{ flexDirection: "row", gap: spacing.sm }}>
+              {steps.map((step, index) => (
+                <Pressable
+                  key={step}
+                  testID={`home-step-${index}`}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${step}, ${progress.completed[index] ? "completed" : "not completed"}`}
+                  accessibilityHint="Open this preparation step to review or edit it."
+                  onPress={() => openStep(index)}
+                  style={({ pressed }) => ({
+                    flex: 1,
+                    minHeight: 44,
+                    paddingHorizontal: spacing.xs,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: spacing.xs,
+                    borderRadius: radius.sm,
+                    backgroundColor: pressed ? C.blueSoft : "transparent",
+                  })}
+                >
+                  <Icon
+                    name={progress.completed[index] ? "checkmark-circle" : "ellipse-outline"}
+                    size={17}
+                    color={progress.completed[index] ? C.green : C.muted}
+                  />
+                  <Text style={[typography.detail, {
+                    color: progress.completed[index] ? C.green : index === progress.step ? C.blue : C.navy,
+                    fontWeight: "600",
+                    flexShrink: 1,
+                  }]}>
+                    {step}
+                  </Text>
+                  <Icon name="chevron-forward" size={12} color={C.muted} />
+                </Pressable>
+              ))}
+            </View>
             <Button
               title={progress.action}
               testID="home-next-action"
               icon="arrow-forward"
               onPress={apply}
             />
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 6,
-              }}
-            >
-              <Icon name="lock-closed-outline" size={13} color={C.muted} />
-              <Text style={s.small}>No account required</Text>
-            </View>
           </Card>
         </View>
         <View style={{ flex: 1, gap: 6 }}>
@@ -208,12 +230,11 @@ export function HomeScreen({
           flexDirection: "row",
           alignItems: "center",
           gap: 12,
-          backgroundColor: C.white,
+          backgroundColor: pressed ? C.blueSoft : C.white,
           borderRadius: 18,
           borderWidth: 1,
           borderColor: C.line,
           padding: 17,
-          opacity: pressed ? 0.7 : 1,
         })}
       >
         <Icon name="calendar-outline" color={C.blue} />

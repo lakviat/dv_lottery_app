@@ -1,5 +1,6 @@
 import { Draft, Person, parseDate, today } from "./models";
 import { normalizeCountry } from "./countryNormalization";
+import { canonicalPersonName } from "./names";
 
 export type PassportReading = {
   first: string;
@@ -12,6 +13,27 @@ export type PassportReading = {
   nationality: string;
   expires: string;
 };
+
+const readErrors = {
+  multiple:
+    "More than one passport was detected. Choose a photo of just one identity page.",
+  unreadable:
+    "We couldn’t read both passport lines reliably. Include the two lines of letters, numbers and < symbols at the bottom, avoid glare, and try again. You can also enter your details manually.",
+};
+
+class PassportReadError extends Error {
+  constructor(readonly reason: keyof typeof readErrors) {
+    super(readErrors[reason]);
+    this.name = "PassportReadError";
+  }
+}
+
+/** Only parser-authored guidance is safe to display, never native error details. */
+export function passportScanErrorMessage(error: unknown): string {
+  return error instanceof PassportReadError
+    ? readErrors[error.reason]
+    : "We couldn’t read that photo. Try a clear photo of one passport’s identity page with both lines at the bottom, or enter your details manually.";
+}
 
 // ICAO Doc 9303, TD3: two lines of 44 characters. Check digits detect OCR
 // mistakes; they do not authenticate the document or validate eligibility.
@@ -111,6 +133,11 @@ function readPair(
   };
 }
 
+function canonicalPassportName(name: Pick<PassportReading, "first" | "middle" | "last">) {
+  const { first, middle, last } = canonicalPersonName(name);
+  return { first, middle, last };
+}
+
 export function parsePassport(lines: string[], now = today()): PassportReading {
   const candidates = [
     ...new Set(
@@ -134,27 +161,25 @@ export function parsePassport(lines: string[], now = today()): PassportReading {
       if (result) results.set(JSON.stringify(result), result);
     }
   }
-  if (results.size > 1)
-    throw new Error(
-      "More than one passport was detected. Choose a photo of just one identity page.",
-    );
+  if (results.size > 1) throw new PassportReadError("multiple");
   const result = [...results.values()][0];
-  if (!result)
-    throw new Error(
-      "We couldn’t read both passport lines reliably. Include the two lines of letters, numbers and < symbols at the bottom, avoid glare, and try again. You can also enter your details manually.",
-    );
-  return result;
+  if (!result) throw new PassportReadError("unreadable");
+  return { ...result, ...canonicalPassportName(result) };
+}
+
+/** Unresolved fields need explicit review, not a guess or a blank replacement. */
+export function unresolvedPassportCountries(reading: PassportReading): string[] {
+  return [
+    !normalizeCountry(reading.issuer) ? "issuing country" : "",
+    !normalizeCountry(reading.nationality) ? "nationality" : "",
+  ].filter(Boolean);
 }
 
 /** Use only after the review screen has obtained explicit replacement consent. */
 export function applyPassport(draft: Draft, reading: PassportReading): Draft {
   const primary: Person = {
     ...draft.people[0],
-    first: reading.first.trim(),
-    middle: reading.middle.trim(),
-    last: reading.last.trim(),
-    noFirst: !reading.first.trim(),
-    noLast: !reading.last.trim(),
+    ...canonicalPersonName(reading),
     dob: reading.dob,
     sex: reading.sex || draft.people[0].sex,
   };
@@ -179,8 +204,9 @@ export function applyPassport(draft: Draft, reading: PassportReading): Draft {
 
 /** Count only values which can actually fill corresponding fields. */
 export function passportFieldCount(reading: PassportReading): number {
+  const name = canonicalPassportName(reading);
   return [
-    reading.first.trim(), reading.middle.trim(), reading.last.trim(),
+    name.first, name.middle, name.last,
     reading.dob, reading.sex, reading.number.trim(),
     normalizeCountry(reading.issuer), normalizeCountry(reading.nationality),
     reading.expires,

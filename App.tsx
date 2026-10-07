@@ -13,10 +13,14 @@ import {
 } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { preparationProgress } from "./expo-app/preparation";
-import { APP_NAME, BrandMark } from "./expo-app/Brand";
+import { APP_NAME, APP_VERSION, BrandMark } from "./expo-app/Brand";
 import { HomeScreen, GuideContent } from "./expo-app/HomeScreen";
 import { ApplyScreen } from "./expo-app/ApplyScreen";
-import { PhotosScreen, removePhotoFile } from "./expo-app/PhotosScreen";
+import { PhotosScreen } from "./expo-app/PhotosScreen";
+import { cleanupOrphanPhotoFiles } from "./expo-app/photoFiles";
+import { resetPreparation } from "./expo-app/photoState";
+import { resetWorkflowHint } from "./expo-app/workflowPreference";
+import { createLocalDataOperations } from "./expo-app/localDataOperations";
 import { EntriesScreen } from "./expo-app/EntriesScreen";
 import {
   RegistrationAlerts,
@@ -36,7 +40,6 @@ import {
 import {
   Records,
   Tab,
-  makeDraft,
   makeRecords,
   official,
 } from "./expo-app/models";
@@ -46,14 +49,15 @@ import {
   Button,
   C,
   Card,
+  Disclosure,
   Icon,
   IconName,
   Label,
   LinkRow,
-  Notice,
   Sheet,
   Title,
   s,
+  typography,
 } from "./expo-app/ui";
 
 const tabs: { name: Tab; label: string; icon: IconName; selected: IconName }[] =
@@ -89,6 +93,9 @@ function DVApp() {
   const [loadError, setLoadError] = useState("");
   const [saveState, setSaveState] = useState("Saved on this device");
   const [saveFailed, setSaveFailed] = useState(false);
+  const [clearing, setClearing] = useState(false);
+  const [dataOperations] = useState(createLocalDataOperations);
+  const beginPhotoOperation = dataOperations.beginPhotoOperation;
   const [guide, setGuide] = useState(false);
   const [settings, setSettings] = useState(false);
   const [alerts, setAlerts] = useState(false);
@@ -99,10 +106,21 @@ function DVApp() {
   const replayAfterSettings = useRef(false);
   const [addRequest, setAddRequest] = useState(0);
   const [scanRequest, setScanRequest] = useState(0);
+  const [swipeHintRequest, setSwipeHintRequest] = useState(0);
+  const [photoPersonId, setPhotoPersonId] = useState<string | undefined>(undefined);
+  const openPhotos = (personId?: string) => {
+    setPhotoPersonId(personId);
+    setTab("Photos");
+  };
   const load = () => {
     setLoadError("");
     void Promise.all([loadRecords(), shouldShowWelcome()])
-      .then(([data, showWelcome]) => {
+      .then(async ([data, showWelcome]) => {
+        try {
+          await cleanupOrphanPhotoFiles(data.photos);
+        } catch {
+          Alert.alert("Photo cleanup incomplete", "Your saved photo library is unchanged. Unused app copies could not be removed; cleanup will be retried next time you open the app.");
+        }
         latest.current = data;
         setWelcome(showWelcome);
         setRecords(data);
@@ -119,15 +137,20 @@ function DVApp() {
     setWelcome(false);
     void dismissWelcome();
   };
-  const update = (fn: (r: Records) => Records) => {
-    if (!latest.current) return;
+  const update = (fn: (r: Records) => Records): Promise<void> => {
+    if (!latest.current) throw new Error("Load saved records before changing them.");
+    if (dataOperations.isClearing()) {
+      const rejected = Promise.reject(new Error("Wait for local data deletion to finish."));
+      void rejected.catch(() => Alert.alert("Data deletion in progress", "Wait until deletion finishes before making changes."));
+      return rejected;
+    }
     const next = fn(latest.current);
     latest.current = next;
     setRecords(next);
     setSaveState("Saving…");
     const currentRevision = ++revision.current;
-    queue.current = queue.current
-      .then(() => saveRecords(next))
+    const saved = queue.current.then(() => saveRecords(next));
+    queue.current = saved
       .then(() => {
         if (revision.current === currentRevision) {
           setSaveState("Saved on this device");
@@ -138,6 +161,7 @@ function DVApp() {
         setSaveFailed(true);
         setSaveState("Save failed — tap to retry");
       });
+    return saved;
   };
   const apply = () => {
     update((r) => {
@@ -162,21 +186,33 @@ function DVApp() {
     setScanRequest((v) => v + 1);
     setTab("Apply");
   };
+  const openPreparationStep = (step: number) => {
+    update((r) => ({
+      ...r,
+      draft: { ...r.draft, started: true, step },
+    }));
+    setTab("Apply");
+  };
   const addEntry = () => {
     setTab("My Entries");
     setAddRequest((v) => v + 1);
   };
   const resetDraft = () =>
     Alert.alert(
-      "Start a fresh draft?",
-      "Your current preparation details will be replaced. Saved entries and your photo library stay available.",
+      "Reset preparation?",
+      "This clears personal, passport, contact and family details, preparation progress, review confirmations and selected photo associations. Saved entry records and all saved photos will be kept. This cannot be undone.",
       [
         { text: "Cancel", style: "cancel" },
         {
-          text: "Reset draft",
+          text: "Reset preparation",
           style: "destructive",
           onPress: () => {
-            update((r) => ({ ...r, draft: makeDraft() }));
+            if (dataOperations.hasPhotoOperations()) {
+              Alert.alert("Finish the photo operation first", "Finish or cancel the photo import, save or check before resetting preparation.");
+              return;
+            }
+            update(resetPreparation);
+            setPhotoPersonId(undefined);
             setSettings(false);
             setTab("Apply");
           },
@@ -194,7 +230,12 @@ function DVApp() {
           style: "destructive",
           onPress: () => {
             if (!latest.current) return;
-            const old = latest.current;
+            if (dataOperations.isClearing()) return;
+            if (!dataOperations.beginClear()) {
+              Alert.alert("Finish the photo operation first", "Finish or cancel the photo import, save or check before deleting local data.");
+              return;
+            }
+            setClearing(true);
             const blank = makeRecords();
             queue.current = queue.current
               .then(async () => {
@@ -202,9 +243,11 @@ function DVApp() {
                 await saveRecords(blank);
                 latest.current = blank;
                 setRecords(blank);
-                await Promise.allSettled(
-                  old.photos.map((p) => removePhotoFile(p.uri)),
-                );
+                try {
+                  await cleanupOrphanPhotoFiles([]);
+                } catch {
+                  Alert.alert("Photo cleanup incomplete", "Your local records were cleared. Some unused photo copies could not be removed; cleanup will be retried next time you open the app.");
+                }
                 setSettings(false);
                 setTab("Home");
                 setSaveState("Saved on this device");
@@ -215,10 +258,21 @@ function DVApp() {
                   "Could not delete records",
                   "Your existing records have been kept. Try again.",
                 ),
-              );
+              )
+              .finally(() => {
+                dataOperations.finishClear();
+                setClearing(false);
+              });
           },
         },
       ],
+    );
+  if (clearing)
+    return (
+      <View style={{ flex: 1, backgroundColor: C.bg, padding: 28, gap: 16, justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator color={C.navy} />
+        <Text accessibilityRole="alert" style={s.body}>Deleting local app data…</Text>
+      </View>
     );
   if (!records)
     return (
@@ -281,11 +335,11 @@ function DVApp() {
             flexDirection: "row",
             alignItems: "center",
             paddingHorizontal: 20,
-            paddingBottom: 12,
+            paddingBottom: tab === "Home" ? 12 : 4,
             gap: 11,
           }}
         >
-          <BrandMark size={36} />
+          {tab === "Home" && <BrandMark size={36} />}
           <View style={{ flex: 1, gap: 3 }}>
             <Text
               style={{
@@ -295,36 +349,65 @@ function DVApp() {
                 letterSpacing: -0.5,
               }}
             >
-              {APP_NAME}
+              {tab === "Home"
+                ? APP_NAME
+                : tab === "Apply"
+                  ? "Preparation"
+                  : tab === "My Entries"
+                    ? "Entries"
+                    : "Photos"}
             </Text>
-            <Pressable
-              accessibilityRole={saveFailed ? "button" : "text"}
-              onPress={() => {
-                if (saveFailed) update((r) => r);
-              }}
-            >
-              <Text
-                style={{ fontSize: 11, color: saveFailed ? C.red : C.muted }}
-              >
+            {tab === "Home" && !saveFailed && (
+              <Text style={s.small}>
                 {saveState}
               </Text>
-            </Pressable>
+            )}
           </View>
+          {tab !== "Home" && saveState === "Saving…" && (
+            <ActivityIndicator
+              accessibilityLabel="Saving changes on this device"
+              color={C.muted}
+            />
+          )}
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Open settings"
             onPress={() => setSettings(true)}
             hitSlop={12}
-            style={{
+            style={({ pressed }) => ({
               width: 44,
               height: 44,
               alignItems: "center",
               justifyContent: "center",
-            }}
+              borderRadius: 14,
+              backgroundColor: pressed ? C.blueSoft : "transparent",
+            })}
           >
             <Icon name="settings-outline" size={24} color={C.blue} />
           </Pressable>
         </View>
+        {saveFailed && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Changes could not be saved. Keep the app open and tap to retry."
+            onPress={() => update((r) => r)}
+            style={({ pressed }) => ({
+              minHeight: 48,
+              paddingHorizontal: 20,
+              paddingVertical: 12,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 10,
+              backgroundColor: pressed ? C.disabled : C.dangerSoft,
+            })}
+          >
+            <Icon name="alert-circle-outline" color={C.red} />
+            <Text style={[s.small, { color: C.red, flex: 1 }]}>
+              Changes not saved. Keep the app open and tap to retry.
+            </Text>
+            <Icon name="refresh-outline" color={C.red} />
+          </Pressable>
+        )}
       </View>
       {tab === "Home" && (
         <HomeScreen
@@ -332,22 +415,27 @@ function DVApp() {
           alerts={() => setAlerts(true)}
           registrationStatus={registrationSummary(alertStatus.feed)}
           apply={apply}
+          openStep={openPreparationStep}
           scan={scan}
-          photos={() => setTab("Photos")}
+          photos={() => openPhotos()}
           entries={() => setTab("My Entries")}
           guide={() => setGuide(true)}
         />
       )}
       {tab === "Apply" && (
         <ApplyScreen
+          key={records.draft.people[0].id}
           records={records}
           update={update}
-          photos={() => setTab("Photos")}
+          photos={openPhotos}
           addEntry={addEntry}
           scanRequest={scanRequest}
+          swipeHintRequest={swipeHintRequest}
         />
       )}
-      {tab === "Photos" && <PhotosScreen records={records} update={update} />}
+      {tab === "Photos" && (
+        <PhotosScreen records={records} update={update} initialPersonId={photoPersonId} beginPhotoOperation={beginPhotoOperation} />
+      )}
       {tab === "My Entries" && (
         <EntriesScreen
           records={records}
@@ -384,15 +472,15 @@ function DVApp() {
               accessibilityLabel={item.label}
               testID={`tab-${item.name.replace(" ", "-").toLowerCase()}`}
               onPress={() => setTab(item.name)}
-              style={{
+              style={({ pressed }) => ({
                 flex: 1,
                 minHeight: 53,
                 borderRadius: 15,
                 alignItems: "center",
                 justifyContent: "center",
                 gap: 4,
-                backgroundColor: item.name === tab ? C.blueSoft : "transparent",
-              }}
+                backgroundColor: item.name === tab || pressed ? C.blueSoft : "transparent",
+              })}
             >
               <Icon
                 name={item.name === tab ? item.selected : item.icon}
@@ -401,7 +489,7 @@ function DVApp() {
               />
               <Text
                 style={{
-                  fontSize: 11,
+                  ...typography.caption,
                   fontWeight: item.name === tab ? "700" : "500",
                   color: item.name === tab ? C.blue : C.muted,
                 }}
@@ -454,31 +542,42 @@ function DVApp() {
           }}
         />
         <Card>
-          <BrandMark size={58} />
-          <Label>{APP_NAME}</Label>
-          <Title>Made for your next chapter.</Title>
-          <Body>
-            An independent iPhone and iPad companion for preparing DV entries,
-            organizing photos and keeping your own case history.
-          </Body>
-          <Notice title="Official actions happen on the government website">
-            This app does not submit entries, collect government fees, certify
-            photos or retrieve official status automatically.
-          </Notice>
-        </Card>
-        <Card>
-          <Title>Your information stays with you</Title>
-          <Body>
-            Your draft and entry records are saved securely on this device.
-            Photos are kept in the app’s local storage. No account or cloud sync
-            is required. Optional email alerts share only your email and consent
-            with Green Card Application Services through its Google service.
-          </Body>
-          <Body muted>
-            Keep a separate copy of your official confirmation. Uninstalling the
-            app or switching devices may make local records unavailable. Use
-            fictional details while testing this beta.
-          </Body>
+          <Disclosure title="Privacy & data">
+            <Body>
+              Your draft and entry records are saved securely on this device.
+              Photos are kept in the app’s local storage. No account or cloud sync
+              is required. Optional email alerts share only your email and consent
+              with Green Card Application Services through its Google service.
+            </Body>
+            <Body muted>
+              Keep a separate copy of your official confirmation. Uninstalling the
+              app or switching devices may make local records unavailable. Use
+              fictional details while testing this beta.
+            </Body>
+          </Disclosure>
+          <Disclosure title="Government disclaimer">
+            <Body>
+              This is an independent preparation tool, not affiliated with the
+              U.S. government. Official actions happen on government websites.
+            </Body>
+            <Body muted>
+              This app does not submit entries, collect government fees, certify
+              photos or retrieve official status automatically.
+            </Body>
+          </Disclosure>
+          <Disclosure title="About this app">
+            <BrandMark size={44} />
+            <Label>{APP_NAME}</Label>
+            <Body>
+              An independent iPhone and iPad companion for preparing DV entries,
+              organizing photos and keeping your own case history.
+            </Body>
+          </Disclosure>
+          <LinkRow
+            title="Support & privacy"
+            url="https://greencardapplicationservices.com/policies/#privacy"
+          />
+          <Text style={s.small}>App version {APP_VERSION}</Text>
         </Card>
         <Card>
           <LinkRow
@@ -493,9 +592,22 @@ function DVApp() {
         </Card>
         <Button
           secondary
-          title="Start a fresh preparation draft"
+          title="Reset preparation"
+          testID="reset-preparation"
           icon="refresh-outline"
           onPress={resetDraft}
+        />
+        <Button
+          variant="tertiary"
+          title="Show the step navigation hint again"
+          icon="swap-horizontal-outline"
+          onPress={() => {
+            void resetWorkflowHint().then(() => {
+              setSwipeHintRequest((request) => request + 1);
+              setSettings(false);
+              setTab("Apply");
+            }).catch(() => Alert.alert("Could not reset the hint", "Please try again. Your preparation has not changed."));
+          }}
         />
         <Button
           danger

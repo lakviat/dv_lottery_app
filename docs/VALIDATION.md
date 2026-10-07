@@ -1,5 +1,107 @@
 # Verification record
 
+## Current round-2 premium polish (October 6, 2026)
+
+**NOT BUILT LOCALLY.** No Expo runtime, iOS Simulator, Xcode build, native OCR,
+TestFlight build, device rendering, or visual inspection was performed for this
+change. Historical results below apply only to their recorded earlier revisions.
+
+Static checks for the current changes:
+
+| Command | Result |
+| --- | --- |
+| `npm run typecheck` | Passed with strict TypeScript; installed React Native 0.86.3 input declarations inspected |
+| `npm test` | Passed after UX/photo follow-up: 110 app/domain tests and 7 isolated registration-service tests |
+| `git diff --check` | Passed |
+
+The initial typecheck could not find `tsc`; `npm ci --no-audit --no-fund`
+restored the existing lockfile dependencies. No manifest, lockfile, package,
+build configuration, app identifier, signing or backend changes were needed.
+The UX/photo follow-up adds schema v3 with v1/v2 migration while keeping the
+existing storage key and persistence mechanism. No lint script is defined.
+
+New regressions cover screen-ordered first-invalid targeting (including
+conditional controls and education), contact/family and duplicate-entry error order, generalized
+country alias handling, ambiguous passport countries, safe parser error copy,
+and per-person photo status selection. These pure tests do not prove native
+scroll positions, keyboard behavior or visual correctness.
+
+The app's gear is the ordinary About & Settings control, not a debug overlay.
+No floating development control was found in the Expo app sources. Expo's
+development tooling and the separate SwiftUI UI-test fixtures were not removed.
+See the [round-2 device checklist](TESTFLIGHT.md#round-2-polish-device-checklist)
+before accepting or merging this change.
+
+### Connected progress refinement
+
+The same branch/PR now has a separate connected Prepare stepper and compact
+editable Home shortcuts. Both calculate completion from current `draftIssues`
+through `preparationCompletion`; no cached completion flags or step locks were
+introduced. Swipes and checkpoint taps use the same `go` path. Continue retains
+its existing validation behavior.
+
+- `npm run typecheck`: passed.
+- `node_modules/.bin/tsx --test expo-app/stepSwipe.test.ts expo-app/preparation.test.ts expo-app/formValidation.test.ts`: 16 passed.
+- `npm test`: 50 app/domain and 7 service tests passed.
+- `git diff --check`: passed.
+- Dependencies, configuration, native modules, model/business rules, services
+  and persistence were compared with the preceding PR revision and are unchanged.
+
+The existing React Native PanResponder and KeyboardAvoidingView implementations
+were inspected. Gesture handlers are attached to the existing keyboard surface,
+not an extra native wrapper that would change keyboard coordinates. Movement is
+measured from the initial touch because PanResponder resets its own deltas on
+responder grant. Pure tests cover deliberate gestures, direction locking,
+boundaries, control cancellation, editing, screen readers and multi-touch.
+
+**NOT BUILT LOCALLY.** These checks do not establish gesture arbitration with
+native controls, rendered connector alignment or motion. See the
+[progress device checks](TESTFLIGHT.md#connected-progress-device-checks).
+
+### UX and photo-system follow-up
+
+**NOT BUILT LOCALLY.** The owner reported testing the preceding branch build on
+an iPhone; that does not establish runtime correctness of this new follow-up.
+New Swift Vision code has been statically inspected, not compiled or run.
+
+- `npm run typecheck`: passed.
+- `npm test`: 110 app/domain and 7 isolated service tests passed.
+- `node_modules/.bin/tsx --test expo-app/localDataOperations.test.ts expo-app/photoFilePaths.test.ts expo-app/photoState.test.ts expo-app/photoChecks.test.ts expo-app/migrations.test.ts expo-app/stepSwipe.test.ts`: 57 passed.
+- `git diff --check`: passed.
+- `git diff --exit-code eb94d38 -- package.json package-lock.json app.json services expo-app/storage.ts`: unchanged.
+
+Added regression coverage includes selected-photo switching/deletion/reset,
+selected-only completion, technical versus advisory failures, migration and cached
+report guards, one-name canonicalization, binary image metadata parsing, exact
+600px/240,000-byte boundaries, confidence/heuristic bands, owned-file cleanup,
+shorter swipe/flick thresholds in all four neighboring directions, and exclusive
+clear-all coordination with import/check/save/cleanup operations.
+
+The native module remains optional and preserves passport recognition. Deterministic
+file checks still run in older builds/Expo Go; seven visual estimates require the
+updated native module. A successful technical check is not government acceptance.
+Full head size and accessory detection are explicitly not automated here.
+Structured reports are cached; raw face observations are not persisted.
+
+Selection is independent of compliance. A selected photo must still meet existing
+date/review/not-reused confirmations, the new not-altered confirmation, and have no
+known technical failures. Advisory/unknown visual findings do not independently
+block completion, as requested by the owner.
+
+Photo deletion now awaits the queued record save before deleting owned prepared
+and source copies. Failed cleanup is surfaced and can retry; startup cleanup runs
+before exposing the app. Reset keeps files and saved entries, clears preparation
+and returns retained photos to the unassigned library. An analysis failure never
+automatically deletes the photo.
+Whole-store deletion waits for photo work to finish and hides interactive UI
+through persistence and cleanup. Pending-photo controls are disabled during save,
+so edits cannot appear to be accepted and then discarded with the saved snapshot.
+
+See the [UX/photo device checklist](TESTFLIGHT.md#ux-and-photo-system-device-checks)
+for unresolved native, permissions, persistence, migration and calibration risks.
+
+## Historical verification
+
 Date: October 5, 2026. Toolchain: Xcode 27.0 (27A266a). App deployment target: iOS 17.0. The original SwiftUI target has no third-party runtime dependencies. The Expo preview uses SDK 57 and its compatible modules.
 
 ## Build and automated checks

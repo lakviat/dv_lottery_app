@@ -90,3 +90,31 @@ test("ICAO alternatives map safely, while unsupported and ambiguous values stay 
   assert.equal(normalizeCountry(null), null);
   assert.equal(normalizeCountry(undefined), null);
 });
+
+test("case, surrounding whitespace and MRZ padding work across the bundled country table", () => {
+  for (const row of data) {
+    for (const code of [row.alpha2, row.alpha3].filter(Boolean)) {
+      assert.equal(normalizeCountry(`  ${code.toLowerCase()}<<  `), row.name);
+    }
+  }
+  assert.equal(normalizeCountry("  kyrgyz republic  "), "Kyrgyzstan");
+  assert.equal(
+    normalizeCountry("CÔTE D’IVOIRE".normalize("NFD")),
+    "Côte d’Ivoire",
+  );
+});
+
+test("combined, partial and ambiguous labels are never guessed after normalization", () => {
+  for (const input of [
+    "  congo  ",
+    "KOREA",
+    "KG / KGZ",
+    "Kyrgyz",
+    "Republic",
+    "United",
+    "GB US",
+    "Kyrgyzstan / Kazakhstan",
+  ]) {
+    assert.equal(normalizeCountry(input), null, input);
+  }
+});
