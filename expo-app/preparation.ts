@@ -36,20 +36,20 @@ export function detailsFieldErrors(
       ["address", "Enter your street address."],
       ["city", "Enter your city or town."],
       ["province", "Enter your district, province or state."],
-      ["country", "Choose your mailing country."],
-      ["residence", "Choose the country where you live."],
     ] as const)
       if (!d[key].trim()) errors[key] = message;
     if (!d.postal.trim() && !d.noPostal)
       errors.postal = "Enter a postal code or choose no postal code.";
+    if (!d.country.trim()) errors.country = "Choose your mailing country.";
+    if (!d.residence.trim()) errors.residence = "Choose the country where you live.";
   } else {
     if (!d.marital) errors.marital = "Choose your current marital status.";
     const spouses = d.people.filter((p) => p.relationship === "Spouse");
-    if (needsSpouse(d) && spouses.length !== 1)
-      errors.familyMembers = "Add one spouse record for this marital status.";
     if (!needsSpouse(d) && spouses.length)
       errors.marital = "Review the spouse record against your marital status.";
     d.people.slice(1).forEach(addPerson);
+    if (needsSpouse(d) && spouses.length !== 1)
+      errors.familyMembers = "Add one spouse record for this marital status.";
     if (!d.familyReviewed)
       errors.familyReviewed = "Confirm you reviewed who must be included.";
   }

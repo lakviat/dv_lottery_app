@@ -118,6 +118,7 @@ function PersonFields({
           label="First / given name"
           value={person.first}
           editable={!person.noFirst}
+          nextFieldId={personFieldID(person.id, "middle")}
           textContentType="givenName"
           autoCapitalize="words"
           onChangeText={(v) => set("first", v)}
@@ -135,6 +136,7 @@ function PersonFields({
           {...field("middle")}
           label="Middle name (optional)"
           value={person.middle}
+          nextFieldId={personFieldID(person.id, person.noLast ? "dob" : "last")}
           textContentType="middleName"
           autoCapitalize="words"
           onChangeText={(v) => set("middle", v)}
@@ -144,6 +146,7 @@ function PersonFields({
           label="Last / family name"
           value={person.last}
           editable={!person.noLast}
+          nextFieldId={personFieldID(person.id, "dob")}
           textContentType="familyName"
           autoCapitalize="words"
           onChangeText={(v) => set("last", v)}
@@ -166,6 +169,7 @@ function PersonFields({
           placeholder="MM/DD/YYYY"
           help="Month / day / year"
           value={displayBirthDate(person.dob)}
+          nextFieldId={personFieldID(person.id, "sex")}
           onChangeText={(v) => set("dob", v)}
           onBlur={() => set("dob", normalizeBirthDate(person.dob))}
           keyboardType="numbers-and-punctuation"
@@ -182,6 +186,7 @@ function PersonFields({
           {...field("city")}
           label="City of birth"
           value={person.city}
+          nextFieldId={personFieldID(person.id, "country")}
           autoCapitalize="words"
           onChangeText={(v) => set("city", v)}
         />
@@ -376,7 +381,17 @@ export function ApplyScreen({
     <Screen form={form} scrollRef={scroll} footer={footer}>
       <PageHeading
         eyebrow={`PREPARATION · STEP ${d.step + 1} OF 3`}
-        title="Prepare your entry"
+        title={
+          d.step === 0
+            ? d.detailsSection === "personal"
+              ? "Personal details"
+              : d.detailsSection === "contact"
+                ? "Contact details"
+                : "Family"
+            : d.step === 1
+              ? "Photos"
+              : "Review"
+        }
       >
         {d.step === 0
           ? "Start with your details. We’ll help with the rest."
@@ -575,6 +590,7 @@ export function ApplyScreen({
                   onChangeText={(v) => set("phone", v)}
                   keyboardType="phone-pad"
                   textContentType="telephoneNumber"
+                  autoCapitalize="none"
                 />
               </FormSection>
               <FormSection title="Mailing address">
@@ -619,6 +635,7 @@ export function ApplyScreen({
                   value={d.province}
                   onChangeText={(v) => set("province", v)}
                   textContentType="addressState"
+                  nextFieldId={d.noPostal ? "country" : "postal"}
                   autoCapitalize="words"
                 />
                 <Field
@@ -629,6 +646,7 @@ export function ApplyScreen({
                   editable={!d.noPostal}
                   onChangeText={(v) => set("postal", v)}
                   textContentType="postalCode"
+                  nextFieldId="country"
                   autoCapitalize="characters"
                 />
                 <Toggle
@@ -640,6 +658,7 @@ export function ApplyScreen({
                   fieldId="country"
                   error={visibleErrors.country}
                   label="Mailing country"
+                  searchTextContentType="countryName"
                   value={d.country}
                   options={countries}
                   onChange={(v) => set("country", v)}
@@ -651,6 +670,7 @@ export function ApplyScreen({
                   fieldId="residence"
                   error={visibleErrors.residence}
                   label="Country where you live today"
+                  searchTextContentType="countryName"
                   value={d.residence}
                   options={countries}
                   onChange={(v) => set("residence", v)}

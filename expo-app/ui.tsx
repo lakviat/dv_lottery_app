@@ -301,9 +301,10 @@ export function Field({
   };
   const needsAccessory =
     Platform.OS === "ios" &&
-    ["phone-pad", "number-pad", "decimal-pad", "numeric"].includes(
-      props.keyboardType ?? "",
-    ) &&
+    (props.multiline ||
+      ["phone-pad", "number-pad", "decimal-pad", "numeric"].includes(
+        props.keyboardType ?? "",
+      )) &&
     props.editable !== false;
   return (
     <View ref={wrapper} collapsable={false} style={{ gap: spacing.sm }}>
@@ -312,8 +313,11 @@ export function Field({
         ref={input}
         accessibilityLabel={label}
         accessibilityHint={error ?? help}
+        accessibilityState={{ disabled: props.editable === false }}
         placeholderTextColor={C.muted}
         autoCorrect={false}
+        autoCapitalize="none"
+        textContentType="none"
         selectionColor={C.blue}
         returnKeyType={hasNext ? "next" : "done"}
         submitBehavior={props.multiline ? "newline" : "submit"}
@@ -348,8 +352,8 @@ export function Field({
           <View style={s.keyboardToolbar}>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={hasNext ? "Next field" : "Dismiss keyboard"}
-              onPress={advance}
+              accessibilityLabel={props.multiline || !hasNext ? "Dismiss keyboard" : "Next field"}
+              onPress={props.multiline ? Keyboard.dismiss : advance}
               style={{
                 minHeight: 44,
                 paddingHorizontal: 20,
@@ -357,7 +361,7 @@ export function Field({
               }}
             >
               <Text style={{ color: C.blue, fontWeight: "600", fontSize: 16 }}>
-                {hasNext ? "Next" : "Done"}
+                {!props.multiline && hasNext ? "Next" : "Done"}
               </Text>
             </Pressable>
           </View>
@@ -418,6 +422,7 @@ export function Toggle({
           ref={toggle}
           accessibilityLabel={title}
           accessibilityHint={error ?? detail}
+          accessibilityState={{ disabled, checked: value }}
           disabled={disabled}
           value={value}
           onValueChange={onChange}
@@ -439,6 +444,7 @@ export function Select({
   fieldId,
   help,
   disabled = false,
+  searchTextContentType = "none",
 }: {
   label: string;
   value: string;
@@ -449,6 +455,7 @@ export function Select({
   fieldId?: string;
   help?: string;
   disabled?: boolean;
+  searchTextContentType?: TextInputProps["textContentType"];
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -512,7 +519,7 @@ export function Select({
             onChangeText={setQuery}
             autoFocus
             autoCapitalize="none"
-            textContentType="none"
+            textContentType={searchTextContentType}
             returnKeyType="search"
             onSubmitEditing={() => Keyboard.dismiss()}
           />
@@ -853,6 +860,7 @@ function ScrollSurface({
             }}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
+            removeClippedSubviews={false}
             scrollEventThrottle={16}
             onScroll={(event) =>
               form.setScrollOffset(event.nativeEvent.contentOffset.y)

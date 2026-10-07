@@ -64,6 +64,20 @@ test("contact errors target the actual field, clear on correction, and honor no 
   });
   assert.equal(detailsIssues(r.draft, "contact").length > 0, true);
 });
+test("contact validation follows the visible order including postal code before country", () => {
+  assert.deepEqual(Object.keys(detailsFieldErrors(makeRecords().draft, "contact")), [
+    "email", "address", "city", "province", "postal", "country", "residence",
+  ]);
+});
+test("family details precede the missing-spouse action in validation order", () => {
+  const r = validPersonal();
+  r.draft.marital = "Married — spouse is not a U.S. citizen / LPR";
+  const child = makePerson("Child");
+  r.draft.people.push(child);
+  const keys = Object.keys(detailsFieldErrors(r.draft, "family"));
+  assert.equal(keys[0], personFieldID(child.id, "first"));
+  assert.ok(keys.indexOf("familyMembers") > keys.indexOf(personFieldID(child.id, "country")));
+});
 test("Home next action follows actual checklist completeness including expiry", () => {
   const r = validPersonal();
   assert.equal(preparationProgress(r).section, "contact");
