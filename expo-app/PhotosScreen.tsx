@@ -1,9 +1,10 @@
 import React, { useRef, useState } from "react";
-import { Alert, Image, Platform, StyleSheet, Text, View } from "react-native";
+import { AccessibilityInfo, Alert, Image, Platform, StyleSheet, Text, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import * as ImageManipulator from "expo-image-manipulator";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
+import { photoStatus } from "./photoPresentation";
 import {
   Photo,
   Records,
@@ -47,11 +48,17 @@ export async function removePhotoFile(uri: string) {
 export function PhotosScreen({
   records,
   update,
+  initialPersonId,
 }: {
   records: Records;
   update: (fn: (r: Records) => Records) => void;
+  initialPersonId?: string;
 }) {
   const [busy, setBusy] = useState(false);
+  const [activity, setActivity] = useState("");
+  const [personId, setPersonId] = useState(initialPersonId ?? records.draft.people[0].id);
+  const selectedPerson = records.draft.people.find((person) => person.id === personId) ?? records.draft.people[0];
+  const inFlight = useRef(false);
   const [pending, setPending] = useState<Photo | null>(null);
   const [dateConfirmed, setDateConfirmed] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
@@ -76,8 +83,10 @@ export function PhotosScreen({
     return person ? personName(person) : photo.name;
   };
   const pick = async (camera: boolean) => {
-    if (busy) return;
+    if (inFlight.current) return;
+    inFlight.current = true;
     setBusy(true);
+    setActivity(camera ? "Opening camera…" : "Opening Photos…");
     setSaved(false);
     try {
       if (camera) {
@@ -102,6 +111,8 @@ export function PhotosScreen({
         : await ImagePicker.launchImageLibraryAsync(pickerOptions);
       if (result.canceled || !result.assets.length) return;
       const source = result.assets[0];
+      setActivity("Preparing your photo…");
+      AccessibilityInfo.announceForAccessibility("Preparing your photo on this device.");
       const side = Math.min(source.width, source.height);
       if (side < 600) {
         Alert.alert(
@@ -136,10 +147,13 @@ export function PhotosScreen({
         }
         await FileSystem.deleteAsync(image.uri, { idempotent: true });
       }
-      if (!output)
-        throw new Error(
-          "The JPEG could not be reduced below 240 kB. Try another original photo.",
+      if (!output) {
+        Alert.alert(
+          "Try another photo",
+          "This image could not be reduced below 240 kB. Choose another original photo.",
         );
+        return;
+      }
       await FileSystem.makeDirectoryAsync(photoDirectory, {
         intermediates: true,
       });
@@ -152,8 +166,8 @@ export function PhotosScreen({
       setDateConfirmed(camera);
       setPending({
         id: photoID,
-        personId: records.draft.people[0].id,
-        name: personName(records.draft.people[0]),
+        personId: selectedPerson.id,
+        name: personName(selectedPerson),
         uri,
         bytes,
         takenOn: camera ? today() : "",
@@ -161,14 +175,15 @@ export function PhotosScreen({
         notReused: false,
       });
     } catch (error) {
+      if (__DEV__) console.warn("Photo preparation failed:", error instanceof Error ? error.name : "Unknown error");
       Alert.alert(
         "Photo could not be prepared",
-        error instanceof Error
-          ? error.message
-          : "Try again or choose an existing image. Camera capture requires a physical device.",
+        "Try again or choose a different original photo. Your saved photos have not been changed.",
       );
     } finally {
+      inFlight.current = false;
       setBusy(false);
+      setActivity("");
     }
   };
   const close = () => {
@@ -229,7 +244,10 @@ export function PhotosScreen({
     const person = records.draft.people[options.indexOf(label)];
     if (!person) return;
     const patch = { personId: person.id, name: personName(person) };
-    if (isPending) setPending({ ...photo, ...patch });
+    if (isPending) {
+      setPersonId(person.id);
+      setPending({ ...photo, ...patch });
+    }
     else changePhoto(photo, patch);
   };
   const remove = (photo: Photo) =>
@@ -269,14 +287,6 @@ export function PhotosScreen({
       );
     }
   };
-  const statusLabel = (photo: Photo) =>
-    photoReviewed(photo)
-      ? "Reviewed by you"
-      : photoRecent(photo)
-        ? "Needs review"
-        : "New photo needed";
-  const statusTone = (photo: Photo) =>
-    photoReviewed(photo) ? ("green" as const) : ("warm" as const);
   const peopleReady = records.draft.people.filter((person) =>
     records.photos.some(
       (photo) => photo.personId === person.id && photoReviewed(photo),
@@ -293,12 +303,21 @@ export function PhotosScreen({
             <Icon name="camera-outline" size={30} color={C.blue} />
           </View>
           <View style={{ flex: 1, gap: 5 }}>
-            <Title>Start with your photo</Title>
+            <Title>Photo for {personName(selectedPerson)}</Title>
             <Body muted>Face forward. Plain background. Even light.</Body>
           </View>
         </View>
+        {records.draft.people.length > 1 && (
+          <Select
+            label="Who is this photo for?"
+            value={options[records.draft.people.findIndex((person) => person.id === selectedPerson.id)]}
+            options={options}
+            disabled={busy}
+            onChange={(value) => setPersonId(records.draft.people[options.indexOf(value)].id)}
+          />
+        )}
         <Button
-          title="Take a photo"
+          title={busy ? activity : "Take a photo"}
           icon="camera-outline"
           busy={busy}
           onPress={() => void pick(true)}
@@ -357,7 +376,7 @@ export function PhotosScreen({
               />
               <View style={{ flex: 1, gap: 8 }}>
                 <Text style={s.title}>{photoName(photo)}</Text>
-                <Badge tone={statusTone(photo)}>{statusLabel(photo)}</Badge>
+                <Badge tone={photoStatus(photo).tone}>{photoStatus(photo).label}</Badge>
                 <Text style={s.small}>Taken {photo.takenOn}</Text>
               </View>
             </View>
@@ -494,7 +513,7 @@ export function PhotosScreen({
             />
             <View style={{ gap: 8 }}>
               <Title>{photoName(editing)}</Title>
-              <Badge tone={statusTone(editing)}>{statusLabel(editing)}</Badge>
+              <Badge tone={photoStatus(editing).tone}>{photoStatus(editing).label}</Badge>
               <Text style={s.small}>
                 Taken {editing.takenOn} · 600 × 600 JPEG ·{" "}
                 {Math.ceil(editing.bytes / 1000)} kB

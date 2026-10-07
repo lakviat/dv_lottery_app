@@ -13,7 +13,7 @@ import {
 } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { preparationProgress } from "./expo-app/preparation";
-import { APP_NAME, BrandMark } from "./expo-app/Brand";
+import { APP_NAME, APP_VERSION, BrandMark } from "./expo-app/Brand";
 import { HomeScreen, GuideContent } from "./expo-app/HomeScreen";
 import { ApplyScreen } from "./expo-app/ApplyScreen";
 import { PhotosScreen, removePhotoFile } from "./expo-app/PhotosScreen";
@@ -46,14 +46,15 @@ import {
   Button,
   C,
   Card,
+  Disclosure,
   Icon,
   IconName,
   Label,
   LinkRow,
-  Notice,
   Sheet,
   Title,
   s,
+  typography,
 } from "./expo-app/ui";
 
 const tabs: { name: Tab; label: string; icon: IconName; selected: IconName }[] =
@@ -99,6 +100,11 @@ function DVApp() {
   const replayAfterSettings = useRef(false);
   const [addRequest, setAddRequest] = useState(0);
   const [scanRequest, setScanRequest] = useState(0);
+  const [photoPersonId, setPhotoPersonId] = useState<string | undefined>(undefined);
+  const openPhotos = (personId?: string) => {
+    setPhotoPersonId(personId);
+    setTab("Photos");
+  };
   const load = () => {
     setLoadError("");
     void Promise.all([loadRecords(), shouldShowWelcome()])
@@ -281,11 +287,11 @@ function DVApp() {
             flexDirection: "row",
             alignItems: "center",
             paddingHorizontal: 20,
-            paddingBottom: 12,
+            paddingBottom: tab === "Home" ? 12 : 4,
             gap: 11,
           }}
         >
-          <BrandMark size={36} />
+          {tab === "Home" && <BrandMark size={36} />}
           <View style={{ flex: 1, gap: 3 }}>
             <Text
               style={{
@@ -295,36 +301,65 @@ function DVApp() {
                 letterSpacing: -0.5,
               }}
             >
-              {APP_NAME}
+              {tab === "Home"
+                ? APP_NAME
+                : tab === "Apply"
+                  ? "Preparation"
+                  : tab === "My Entries"
+                    ? "Entries"
+                    : "Photos"}
             </Text>
-            <Pressable
-              accessibilityRole={saveFailed ? "button" : "text"}
-              onPress={() => {
-                if (saveFailed) update((r) => r);
-              }}
-            >
-              <Text
-                style={{ fontSize: 11, color: saveFailed ? C.red : C.muted }}
-              >
+            {tab === "Home" && !saveFailed && (
+              <Text style={s.small}>
                 {saveState}
               </Text>
-            </Pressable>
+            )}
           </View>
+          {tab !== "Home" && saveState === "Saving…" && (
+            <ActivityIndicator
+              accessibilityLabel="Saving changes on this device"
+              color={C.muted}
+            />
+          )}
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Open settings"
             onPress={() => setSettings(true)}
             hitSlop={12}
-            style={{
+            style={({ pressed }) => ({
               width: 44,
               height: 44,
               alignItems: "center",
               justifyContent: "center",
-            }}
+              borderRadius: 14,
+              backgroundColor: pressed ? C.blueSoft : "transparent",
+            })}
           >
             <Icon name="settings-outline" size={24} color={C.blue} />
           </Pressable>
         </View>
+        {saveFailed && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Changes could not be saved. Keep the app open and tap to retry."
+            onPress={() => update((r) => r)}
+            style={({ pressed }) => ({
+              minHeight: 48,
+              paddingHorizontal: 20,
+              paddingVertical: 12,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 10,
+              backgroundColor: pressed ? C.disabled : C.dangerSoft,
+            })}
+          >
+            <Icon name="alert-circle-outline" color={C.red} />
+            <Text style={[s.small, { color: C.red, flex: 1 }]}>
+              Changes not saved. Keep the app open and tap to retry.
+            </Text>
+            <Icon name="refresh-outline" color={C.red} />
+          </Pressable>
+        )}
       </View>
       {tab === "Home" && (
         <HomeScreen
@@ -333,7 +368,7 @@ function DVApp() {
           registrationStatus={registrationSummary(alertStatus.feed)}
           apply={apply}
           scan={scan}
-          photos={() => setTab("Photos")}
+          photos={() => openPhotos()}
           entries={() => setTab("My Entries")}
           guide={() => setGuide(true)}
         />
@@ -342,12 +377,14 @@ function DVApp() {
         <ApplyScreen
           records={records}
           update={update}
-          photos={() => setTab("Photos")}
+          photos={openPhotos}
           addEntry={addEntry}
           scanRequest={scanRequest}
         />
       )}
-      {tab === "Photos" && <PhotosScreen records={records} update={update} />}
+      {tab === "Photos" && (
+        <PhotosScreen records={records} update={update} initialPersonId={photoPersonId} />
+      )}
       {tab === "My Entries" && (
         <EntriesScreen
           records={records}
@@ -384,15 +421,15 @@ function DVApp() {
               accessibilityLabel={item.label}
               testID={`tab-${item.name.replace(" ", "-").toLowerCase()}`}
               onPress={() => setTab(item.name)}
-              style={{
+              style={({ pressed }) => ({
                 flex: 1,
                 minHeight: 53,
                 borderRadius: 15,
                 alignItems: "center",
                 justifyContent: "center",
                 gap: 4,
-                backgroundColor: item.name === tab ? C.blueSoft : "transparent",
-              }}
+                backgroundColor: item.name === tab || pressed ? C.blueSoft : "transparent",
+              })}
             >
               <Icon
                 name={item.name === tab ? item.selected : item.icon}
@@ -401,7 +438,7 @@ function DVApp() {
               />
               <Text
                 style={{
-                  fontSize: 11,
+                  ...typography.caption,
                   fontWeight: item.name === tab ? "700" : "500",
                   color: item.name === tab ? C.blue : C.muted,
                 }}
@@ -454,31 +491,42 @@ function DVApp() {
           }}
         />
         <Card>
-          <BrandMark size={58} />
-          <Label>{APP_NAME}</Label>
-          <Title>Made for your next chapter.</Title>
-          <Body>
-            An independent iPhone and iPad companion for preparing DV entries,
-            organizing photos and keeping your own case history.
-          </Body>
-          <Notice title="Official actions happen on the government website">
-            This app does not submit entries, collect government fees, certify
-            photos or retrieve official status automatically.
-          </Notice>
-        </Card>
-        <Card>
-          <Title>Your information stays with you</Title>
-          <Body>
-            Your draft and entry records are saved securely on this device.
-            Photos are kept in the app’s local storage. No account or cloud sync
-            is required. Optional email alerts share only your email and consent
-            with Green Card Application Services through its Google service.
-          </Body>
-          <Body muted>
-            Keep a separate copy of your official confirmation. Uninstalling the
-            app or switching devices may make local records unavailable. Use
-            fictional details while testing this beta.
-          </Body>
+          <Disclosure title="Privacy & data">
+            <Body>
+              Your draft and entry records are saved securely on this device.
+              Photos are kept in the app’s local storage. No account or cloud sync
+              is required. Optional email alerts share only your email and consent
+              with Green Card Application Services through its Google service.
+            </Body>
+            <Body muted>
+              Keep a separate copy of your official confirmation. Uninstalling the
+              app or switching devices may make local records unavailable. Use
+              fictional details while testing this beta.
+            </Body>
+          </Disclosure>
+          <Disclosure title="Government disclaimer">
+            <Body>
+              This is an independent preparation tool, not affiliated with the
+              U.S. government. Official actions happen on government websites.
+            </Body>
+            <Body muted>
+              This app does not submit entries, collect government fees, certify
+              photos or retrieve official status automatically.
+            </Body>
+          </Disclosure>
+          <Disclosure title="About this app">
+            <BrandMark size={44} />
+            <Label>{APP_NAME}</Label>
+            <Body>
+              An independent iPhone and iPad companion for preparing DV entries,
+              organizing photos and keeping your own case history.
+            </Body>
+          </Disclosure>
+          <LinkRow
+            title="Support & privacy"
+            url="https://greencardapplicationservices.com/policies/#privacy"
+          />
+          <Text style={s.small}>App version {APP_VERSION}</Text>
         </Card>
         <Card>
           <LinkRow

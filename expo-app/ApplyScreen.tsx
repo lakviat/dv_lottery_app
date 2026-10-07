@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
   Alert,
+  Image,
   Keyboard,
   Pressable,
   ScrollView,
@@ -10,6 +11,7 @@ import {
 import { PassportCapture } from "./PassportCapture";
 import { applyPassport, passportFieldCount } from "./passport";
 import { normalizeCountry } from "./countryNormalization";
+import { photoForPerson, photoStatus } from "./photoPresentation";
 import countries from "./countries.json";
 import {
   Draft,
@@ -22,7 +24,6 @@ import {
   makePerson,
   official,
   personName,
-  photoReviewed,
   steps,
 } from "./models";
 import {
@@ -61,7 +62,7 @@ import {
 type Props = {
   records: Records;
   update: (fn: (r: Records) => Records) => void;
-  photos: () => void;
+  photos: (personId?: string) => void;
   addEntry: () => void;
   scanRequest?: number;
 };
@@ -364,6 +365,7 @@ export function ApplyScreen({
       <View style={{ flex: 2.4 }}>
         <Button
           title={nextTitle}
+          accessibilityHint={d.step === 2 && !allIssues.length ? "Opens the official government website in the browser." : undefined}
           testID="apply-continue"
           icon={
             d.step === 2 && !allIssues.length ? "open-outline" : "arrow-forward"
@@ -767,9 +769,8 @@ export function ApplyScreen({
             determine acceptance.
           </Body>
           {d.people.map((p) => {
-            const ready = records.photos.some(
-              (photo) => photo.personId === p.id && photoReviewed(photo),
-            );
+            const photo = photoForPerson(records.photos, p.id);
+            const status = photoStatus(photo);
             return (
               <FormAnchor
                 key={p.id}
@@ -778,21 +779,21 @@ export function ApplyScreen({
               >
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={`${personName(p)}. ${ready ? "Photo reviewed" : "Add a photo"}`}
-                  onPress={photos}
-                  style={[s.row, { gap: 12, paddingVertical: 12 }]}
+                  accessibilityLabel={`${personName(p)}. ${status.label}. Open photos.`}
+                  onPress={() => photos(p.id)}
+                  style={({ pressed }) => [s.row, { gap: 12, paddingVertical: 12, backgroundColor: pressed ? C.blueSoft : "transparent" }]}
                 >
-                  <Icon
-                    name={ready ? "checkmark-circle" : "person-circle-outline"}
-                    color={ready ? C.green : C.blue}
-                  />
-                  <View style={{ flex: 1 }}>
+                  {photo ? (
+                    <Image source={{ uri: photo.uri }} style={{ width: 52, height: 52, borderRadius: 8 }} accessible={false} />
+                  ) : (
+                    <Icon name="person-circle-outline" color={C.blue} />
+                  )}
+                  <View style={{ flex: 1, gap: 6 }}>
                     <Text style={s.fieldLabel}>{personName(p)}</Text>
                     <Text style={s.small}>{p.relationship}</Text>
+                    <Badge tone={status.tone}>{status.label}</Badge>
                   </View>
-                  <Badge tone={ready ? "green" : "warm"}>
-                    {ready ? "Reviewed" : "Photo needed"}
-                  </Badge>
+                  <Icon name="chevron-forward" size={18} color={C.muted} />
                 </Pressable>
               </FormAnchor>
             );
@@ -801,7 +802,7 @@ export function ApplyScreen({
             secondary
             title="Open photo library"
             icon="camera-outline"
-            onPress={photos}
+            onPress={() => photos()}
           />
           <LinkRow title="Official photo examples" url={official.photos} />
         </Card>
@@ -827,7 +828,7 @@ export function ApplyScreen({
                 key={step}
                 accessibilityRole="button"
                 onPress={() => go(i)}
-                style={[s.row, { paddingVertical: 12, gap: 10 }]}
+                style={({ pressed }) => [s.row, { paddingVertical: 12, gap: 10, backgroundColor: pressed ? C.blueSoft : "transparent" }]}
               >
                 <Icon
                   name={
