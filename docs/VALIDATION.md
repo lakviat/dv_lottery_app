@@ -1,5 +1,38 @@
 # Verification record
 
+## Current round-2 premium polish (October 6, 2026)
+
+**NOT BUILT LOCALLY.** No Expo runtime, iOS Simulator, Xcode build, native OCR,
+TestFlight build, device rendering, or visual inspection was performed for this
+change. Historical results below apply only to their recorded earlier revisions.
+
+Static checks for the current changes:
+
+| Command | Result |
+| --- | --- |
+| `npm run typecheck` | Passed with strict TypeScript; installed React Native 0.86.3 input declarations inspected |
+| `npm test` | Passed: 44 app/domain tests and 7 isolated registration-service tests |
+| `git diff --check` | Passed |
+
+The initial typecheck could not find `tsc`; `npm ci --no-audit --no-fund`
+restored the existing lockfile dependencies. No manifest, lockfile, package,
+build configuration, app identifier, signing, backend or persistence changes
+were needed. No lint script is defined.
+
+New regressions cover screen-ordered first-invalid targeting (including
+conditional controls and education), contact/family and duplicate-entry error order, generalized
+country alias handling, ambiguous passport countries, safe parser error copy,
+and per-person photo status selection. These pure tests do not prove native
+scroll positions, keyboard behavior or visual correctness.
+
+The app's gear is the ordinary About & Settings control, not a debug overlay.
+No floating development control was found in the Expo app sources. Expo's
+development tooling and the separate SwiftUI UI-test fixtures were not removed.
+See the [round-2 device checklist](TESTFLIGHT.md#round-2-polish-device-checklist)
+before accepting or merging this change.
+
+## Historical verification
+
 Date: October 5, 2026. Toolchain: Xcode 27.0 (27A266a). App deployment target: iOS 17.0. The original SwiftUI target has no third-party runtime dependencies. The Expo preview uses SDK 57 and its compatible modules.
 
 ## Build and automated checks

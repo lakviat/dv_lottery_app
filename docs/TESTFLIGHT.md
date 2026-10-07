@@ -167,6 +167,48 @@ automatic opening emails are not yet activated.
 Expo Go data does not migrate into the separate TestFlight installation. Updates
 to the same installed native bundle identifier retain its existing local data.
 
+## Round-2 polish device checklist
+
+**NOT BUILT LOCALLY.** This branch has not been run in Expo, built for iOS, or
+uploaded to TestFlight. Existing archive and simulator results above are for
+earlier revisions. Rebuild the PR version through the existing workflow; no app
+identity, signing or deployment settings were changed by this pass.
+
+- Complete personal information except education, then Continue. Education must
+  be brought into view, outlined and accompanied by its inline message. Correct
+  it and continue. Repeat with several missing fields, both no-name switches,
+  conditional family members, contact/postal fields and Review confirmations.
+- Repeat first-invalid navigation in passport editing, photo capture-date
+  confirmation, submitted-entry saving, timeline updates and email consent.
+  With VoiceOver, the field and error should be understandable without color.
+- Check iOS AutoFill for first/middle/family name, email, phone, address lines,
+  city, state and postal code. Open mailing/residence country search to check
+  stored-contact suggestions; selecting a matching country is still required.
+  Birthplace and passport countries must not inherit a residence-country hint.
+- Check Next/Done and numeric-keyboard toolbars, multiline Notes dismissal,
+  active-field visibility, keyboard suggestion/frame changes and sticky Continue.
+  Confirm that inline errors remain above the keyboard and action area.
+- Scan via camera and Photos, cancel and deny permissions, retry, edit OCR
+  fields and confirm replacement. Confirm unresolved countries remain unchanged
+  only after explicit consent, and that birthplace/contact/family data remain
+  intact. Native OCR still requires a build with the existing local module.
+- Choose each family member before taking a photo. Verify the assigned person
+  after capture/retake, thumbnails and matching statuses in preparation and the
+  library. Review flags and six-month recency, not automated approval, determine
+  status. Existing photos, entry confirmations and timelines must remain intact.
+- Inspect Home hierarchy, secondary headers, expanded Settings rows, external
+  website labels, readable disabled buttons, press/progress animations and
+  existing completion haptics. Check Reduce Motion and larger accessibility text.
+- Inspect smaller and larger iPhones, iPad, portrait/landscape, notch/Dynamic
+  Island, bottom home indicator, safe areas, tab bar and sheet presentation.
+- Confirm customer builds contain no development overlay. The app's Settings
+  gear must remain usable. Confirm local-save errors provide a visible retry
+  action on every tab, and verify draft/entry/photo persistence after relaunch.
+
+AutoFill suggestions, haptics, permissions, native measurements and responsive
+layout cannot be established by the static checks. The temporary icon is
+unchanged; the final independent artwork is still pending.
+
 ## Publication scope
 
 Uploading a build to TestFlight does not publish an App Store release. Begin with

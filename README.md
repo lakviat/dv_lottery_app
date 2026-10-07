@@ -8,7 +8,7 @@ For standalone iOS beta builds, see [TestFlight setup and test notes](docs/TESTF
 
 ## App branding
 
-**DV Lottery Tracker** uses the approved white eagle, five stars and open circular ring over navy and red-and-white stripes on the home-screen icon, launch screen, opening state, app header, welcome tour and About screen. The original SwiftUI prototype shares the artwork and display name, including its privacy cover.
+**DV Lottery Tracker** currently retains the existing temporary eagle/stripe artwork. A new independent consumer-app icon will be supplied later; the premium-polish pass does not redesign or replace it. The original SwiftUI prototype shares the artwork and display name, including its privacy cover.
 
 - `assets/branding/icon-source.png`: the 1024 × 1024 opaque sRGB master, prepared from the user's artwork with the authorized removal of its surrounding mockup background and shadow; provenance and export instructions are in `assets/branding/README.md`.
 - `assets/branding/icon.png`: opaque 1024 × 1024 app icon. iOS applies the corner mask.
@@ -26,10 +26,28 @@ The shared visual system lives in `expo-app/theme.ts` and `expo-app/ui.tsx`.
 `formNavigation.tsx` provides the same inline-error, first-invalid focus,
 keyboard and sticky-action behavior across preparation and modal forms. Home
 uses the existing checklist rules to show progress and the next useful action.
+Validation maps list fields in screen order, so conditional controls cannot change
+which error is addressed first. iOS contact hints use supported `textContentType`
+values; mailing/residence country suggestions appear in the picker search field
+and still require choosing a match. Suggestions depend on the device's stored
+contact information, not on custom app contact storage.
+
+Secondary headers use page-specific titles without repeating the logo or saved
+subtitle. Save failures remain actionable on every tab. About & Settings keeps
+privacy, government non-affiliation and app details in expandable rows.
+Photo preparation lets users choose the person before capture; preparation and
+the photo library share the same real review/recency status labels.
 
 Country matching is bundled locally in `countryNormalization.ts`; scanning
-never infers birthplace or eligibility from nationality. The approved artwork
-uses shared assets across the app; see [branding instructions](assets/branding/README.md).
+never infers birthplace or eligibility from nationality. Unresolved passport
+countries require explicit keep-unchanged confirmation before other fields are
+imported. Artwork uses shared assets across the app; see
+[branding instructions](assets/branding/README.md).
+
+The round-2 polish is **NOT BUILT LOCALLY**. Earlier native results below describe
+earlier revisions, not this change. See the current record in
+[validation notes](docs/VALIDATION.md) and the
+[device checklist](docs/TESTFLIGHT.md#round-2-polish-device-checklist).
 
 ## Run in Expo Go
 
